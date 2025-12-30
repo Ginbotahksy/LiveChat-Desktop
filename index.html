@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: https:; media-src 'self' file: http: https:;">
+  <link href="styles.css" rel="stylesheet">
+  <title>LiveChat-Desktop</title>
+</head>
+
+<body>
+  <div class="media_container">
+    <img id="image_container" class="illustration">
+    <video id="video_container" class="illustration" autoplay></video>
+    <audio id="audio_container" autoplay></audio>
+    <div id="subtitle_container"></div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+
+</html>
