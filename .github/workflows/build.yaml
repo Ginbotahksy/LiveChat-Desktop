@@ -6,9 +6,12 @@ on:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write # Important pour permettre l'upload vers la release
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -29,32 +32,13 @@ jobs:
       - name: Make Executables
         run: npm run make
 
-      - name: Upload Artifacts (Internal)
-        uses: actions/upload-artifact@v4
-        with:
-          name: Build-${{ matrix.os }}
-          path: out/make/**/*
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: ./artifacts
-
-      - name: Create Release
+      # On envoie directement les fichiers depuis chaque machine vers la release
+      - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
-          draft: false
-          prerelease: false
           files: |
-            ./artifacts/**/*.exe
-            ./artifacts/**/*.deb
-            ./artifacts/**/*.rpm
-            ./artifacts/**/*.zip
+            out/make/**/*.exe
+            out/make/**/*.deb
+            out/make/**/*.rpm
+            out/make/**/*.dmg
+            out/make/**/*.zip
