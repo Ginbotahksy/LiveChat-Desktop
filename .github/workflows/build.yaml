@@ -1,16 +1,15 @@
-name: Build Electron App (Win & Linux)
+name: Build and Release
 on:
   push:
-    branches: [ main ]
+    tags:
+      - 'v*'
 
 jobs:
   build:
     runs-on: ${{ matrix.os }}
-
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest]
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,19 +25,37 @@ jobs:
 
       - name: Install Linux build tools
         if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y fakeroot rpm
+        run: sudo apt-get update && sudo apt-get install -y fakeroot rpm
 
       - name: Make Executables
         run: npm run make
 
-      - name: Upload Artifacts
+      - name: Upload Artifacts (Internal)
         uses: actions/upload-artifact@v4
         with:
           name: Build-${{ matrix.os }}
-          path: |
-            out/make/**/*.exe
-            out/make/**/*.deb
-            out/make/**/*.rpm
-            out/make/**/*.zip
+          path: out/make/**/*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            ./artifacts/**/*.exe
+            ./artifacts/**/*.deb
+            ./artifacts/**/*.rpm
+            ./artifacts/**/*.zip
