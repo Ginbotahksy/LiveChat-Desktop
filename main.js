@@ -92,7 +92,10 @@ function createWindow() {
         transparent: true,
         alwaysOnTop: true,
         focusable: false,
+        skipTaskbar: true,
+        frame: false,
         titleBarStyle: 'hidden',
+        type: 'panel',
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
@@ -100,8 +103,18 @@ function createWindow() {
         }
     });
 
+    if (process.platform === 'darwin') {
+        win.setAlwaysOnTop(true, 'screen-saver');
+        win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    }
+
     win.setIgnoreMouseEvents(true);
     win.loadFile('index.html');
+
+    win.once('ready-to-show', () => {
+        // On affiche sans prendre le focus
+        win.showInactive(); 
+    });
 }
 
 // --- GESTION DU MENU TRAY ---
