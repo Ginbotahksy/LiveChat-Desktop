@@ -10,7 +10,7 @@ jobs:
       contents: write # Important pour permettre l'upload vers la release
     strategy:
       matrix:
-        os: [windows-latest, macos-latest]
+        os: [windows-latest, ubuntu-latest, macos-latest]
 
     steps:
       - name: Checkout code
