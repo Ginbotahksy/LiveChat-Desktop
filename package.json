@@ -1,6 +1,5 @@
 {
   "name": "livechat-desktop",
-  "productName": "LiveChat-Desktop",
   "description": "Concept par Potatoze™ !",
   "keywords": [],
   "main": "./main.js",
