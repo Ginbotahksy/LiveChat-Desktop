@@ -2,12 +2,11 @@ name: Build and Release
 on:
   release:
     types: [published]
-env:
-  env_var: ${{ vars.ADDRESS }}
 
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    environment: env
     permissions:
       contents: write
     strategy:
@@ -15,10 +14,6 @@ jobs:
         os: [windows-latest, ubuntu-latest, macos-latest]
 
     steps:
-      - name: Debug Variables
-        run: |
-          echo $env_var
-
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -37,6 +32,8 @@ jobs:
 
       - name: Make Executables
         run: npm run make
+        env:
+          ADDRESS: ${{ vars.ADDRESS }}
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
