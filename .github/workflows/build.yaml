@@ -13,6 +13,14 @@ jobs:
         os: [windows-latest, ubuntu-latest, macos-latest]
 
     steps:
+      - name: Debug Variables
+        run: |
+          echo "La variable SOCKET_URL est : ${{ vars.ADDRESS }}"
+          if [ -z "${{ vars.ADDRESS }}" ]; then
+            echo "ERREUR : ADDRESS est vide !"
+            exit 1
+          fi
+
       - name: Checkout code
         uses: actions/checkout@v4
 
