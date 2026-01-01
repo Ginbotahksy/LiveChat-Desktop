@@ -19,9 +19,6 @@ module.exports = {
       config: {
         mainConfig: {
           entry: './src/main.js',
-          module: {
-            rules: require('./webpack.rules.js'), // Assure-toi d'avoir ce fichier ou vide []
-          },
           plugins: [
             new webpack.DefinePlugin({
               'process.env.ADDRESS': JSON.stringify(process.env.ADDRESS),
