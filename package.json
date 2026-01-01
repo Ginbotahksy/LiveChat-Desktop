@@ -30,6 +30,7 @@
   },
   "config": {
     "forge": {
+      "forge": "./forge.config.js",
       "packagerConfig": {
         "extendInfo": {
           "LSUIElement": "1"

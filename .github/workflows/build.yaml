@@ -31,9 +31,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y fakeroot rpm
 
       - name: Make Executables
-        run: |
-          echo "Build lancé pour l'adresse : $ADDRESS"
-          npm run make
+        run: npm run make
         env:
           ADDRESS: ${{ vars.ADDRESS }}
 

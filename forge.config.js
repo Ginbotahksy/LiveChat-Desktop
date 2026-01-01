@@ -1,40 +1,28 @@
-const webpack = require('webpack'); // N'oublie pas l'import en haut
+const webpack = require('webpack');
 
 module.exports = {
-  // ... tes autres configs (packagerConfig, etc.)
+  // ... packagerConfig
   plugins: [
     {
       name: '@electron-forge/plugin-webpack',
       config: {
         mainConfig: {
-          entry: '.main.js',
-          module: {
-            rules: [/* ... */]
-          },
+          entry: './src/main.js',
           plugins: [
-            // C'est ICI qu'on injecte les variables du workflow
             new webpack.DefinePlugin({
-              'process.env.SOCKET_URL': JSON.stringify(process.env.SOCKET_URL),
-              'process.env.API_KEY': JSON.stringify(process.env.API_KEY),
+              'process.env.ADDRESS': JSON.stringify(process.env.ADDRESS)
             })
-          ]
+          ],
         },
         renderer: {
           config: {
             entry: './src/renderer.js',
             plugins: [
-                new webpack.DefinePlugin({
-                  'process.env.SOCKET_URL': JSON.stringify(process.env.SOCKET_URL),
-                })
-              ]
+              new webpack.DefinePlugin({
+                'process.env.ADDRESS': JSON.stringify(process.env.ADDRESS)
+              })
+            ]
           },
-          entryPoints: [
-            {
-              html: './src/index.html',
-              js: './src/renderer.js',
-              name: 'main_window',
-            }
-          ]
         }
       }
     }
