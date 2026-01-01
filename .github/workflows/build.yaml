@@ -14,10 +14,6 @@ jobs:
         os: [windows-latest, ubuntu-latest, macos-latest]
 
     steps:
-      - name: Debug Variables
-        run: |
-          echo "La variable est : ${{ vars.ADDRESS }}"
-          
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -35,7 +31,9 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y fakeroot rpm
 
       - name: Make Executables
-        run: npm run make
+        run: |
+          echo "Build lancé pour l'adresse : $ADDRESS"
+          npm run make
         env:
           ADDRESS: ${{ vars.ADDRESS }}
 
