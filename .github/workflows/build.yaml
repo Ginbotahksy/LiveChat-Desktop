@@ -14,6 +14,10 @@ jobs:
         os: [windows-latest, ubuntu-latest, macos-latest]
 
     steps:
+      - name: Debug Variables
+        run: |
+          echo "La variable est : ${{ vars.ADDRESS }}"
+          
       - name: Checkout code
         uses: actions/checkout@v4
 
