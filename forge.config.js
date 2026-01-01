@@ -19,6 +19,7 @@ module.exports = {
       config: {
         mainConfig: {
           entry: './src/main.js',
+          target: 'electron-main',
           plugins: [
             new webpack.DefinePlugin({
               'process.env.ADDRESS': JSON.stringify(process.env.ADDRESS),
@@ -28,6 +29,7 @@ module.exports = {
         renderer: {
           config: {
             entry: './src/renderer.js',
+            target: 'electron-renderer',
             plugins: [
               new webpack.DefinePlugin({
                 'process.env.ADDRESS': JSON.stringify(process.env.ADDRESS),
