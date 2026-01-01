@@ -28,9 +28,6 @@ module.exports = {
         renderer: {
           config: {
             entry: './src/renderer.js',
-            module: {
-              rules: require('./webpack.rules.js'),
-            },
             plugins: [
               new webpack.DefinePlugin({
                 'process.env.ADDRESS': JSON.stringify(process.env.ADDRESS),
