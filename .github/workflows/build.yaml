@@ -15,8 +15,8 @@ jobs:
     steps:
       - name: Debug Variables
         run: |
-          echo "La variable SOCKET_URL est : ${{ vars.ADDRESS }}"
-          if [ -z "${{ vars.ADDRESS }}" ]; then
+          echo "La variable ADDRESS est : ${{ secrets.ADDRESS }}"
+          if [ -z "${{ secrets.ADDRESS }}" ]; then
             echo "ERREUR : ADDRESS est vide !"
             exit 1
           fi
