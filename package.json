@@ -2,7 +2,7 @@
   "name": "livechat-desktop",
   "description": "Concept par Potatoze™ !",
   "keywords": [],
-  "main": "./main.js",
+  "main": "./src/main.js",
   "version": "0.3.1415",
   "author": "Ginbo",
   "scripts": {
@@ -13,8 +13,8 @@
     "lint": "echo \"No linting configured\""
   },
   "dependencies": {
-    "socket.io": "^4.8.3",
-    "socket.io-client": "^4.8.3"
+    "socket.io-client": "^4.8.3",
+    "dotenv": "^16.4.7"
   },
   "devDependencies": {
     "@electron-forge/cli": "7.9.0",
@@ -22,7 +22,11 @@
     "@electron-forge/maker-rpm": "7.9.0",
     "@electron-forge/maker-squirrel": "7.9.0",
     "@electron-forge/maker-zip": "7.9.0",
-    "electron": "39.2.7"
+    "@electron-forge/plugin-webpack": "^7.10.2",
+    "@vercel/webpack-asset-relocator-loader": "^1.10.0",
+    "css-loader": "^7.1.2",
+    "electron": "39.2.7",
+    "style-loader": "^4.0.0"
   },
   "config": {
     "forge": {

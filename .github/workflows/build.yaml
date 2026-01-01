@@ -31,6 +31,8 @@ jobs:
 
       - name: Make Executables
         run: npm run make
+        env:
+          ADDRESS: ${{ env.ADDRESS }}
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2

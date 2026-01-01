@@ -3,8 +3,11 @@ const path = require('node:path');
 const { io } = require("socket.io-client");
 const fs = require('node:fs');
 const CONFIG_PATH = path.join(app.getPath('userData'), 'configLiveChat.json');
+const dotenv = require("dotenv");
 
-const socket = io("http://super-singe.duckdns.org:8080");
+dotenv.config();
+
+const socket = io(`${process.env.ADDRESS}:8080`);
 
 let win = null;
 let tray = null;
@@ -109,7 +112,7 @@ function createWindow() {
     }
 
     win.setIgnoreMouseEvents(true);
-    win.loadFile('index.html');
+    win.loadFile('./src/index.html');
 
     win.once('ready-to-show', () => {
         // On affiche sans prendre le focus
@@ -154,7 +157,7 @@ function updateTrayMenu() {
                 if (!botClientId) return;
 
                 // ON CONSTRUIT L'URL DYNAMIQUEMENT ICI
-                const redirectUri = encodeURIComponent("http://super-singe.duckdns.org:8080/callback");
+                const redirectUri = encodeURIComponent(`${process.env.ADDRESS}:8080/callback`);
                 const authUrl = `https://discord.com/api/oauth2/authorize?client_id=${botClientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify%20guilds`;
 
                 shell.openExternal(authUrl);
