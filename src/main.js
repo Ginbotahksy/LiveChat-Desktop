@@ -179,7 +179,7 @@ function updateTrayMenu() {
         {
             label: 'Test : Image (Antonin)',
             click: () => {
-                const localPath = path.resolve(__dirname, 'assets/bureau_homosexuel.png');
+                const localPath = path.resolve(__dirname, '../assets/bureau_homosexuel.png');
 
                 win.webContents.send('update-media', {
                     url: `file://${localPath}`,
@@ -192,7 +192,7 @@ function updateTrayMenu() {
         {
             label: 'Test : Image (Romain)',
             click: () => {
-                const localPath = path.resolve(__dirname, 'assets/icons/romain_guillon.jpg');
+                const localPath = path.resolve(__dirname, '../assets/icons/romain_guillon.jpg');
 
                 win.webContents.send('update-media', {
                     url: `file://${localPath}`,
@@ -205,7 +205,7 @@ function updateTrayMenu() {
         {
             label: 'Test : Vidéo',
             click: () => {
-                const localPath = path.resolve(__dirname, 'assets/dont_care_im_diogenemaxxing.mp4');
+                const localPath = path.resolve(__dirname, '../assets/dont_care_im_diogenemaxxing.mp4');
 
                 win.webContents.send('update-media', {
                     url: `file://${localPath}`,
@@ -247,7 +247,7 @@ app.whenReady().then(() => {
     loadConfig();
     createWindow();
 
-    const iconPath = path.join(__dirname, 'assets/icons/romain_guillon.jpg');
+    const iconPath = path.join(__dirname, '../assets/icons/romain_guillon.jpg');
     tray = new Tray(nativeImage.createFromPath(iconPath));
     tray.setToolTip('LiveChat-Desktop');
 
