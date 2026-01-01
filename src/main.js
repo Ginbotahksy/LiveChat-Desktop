@@ -222,7 +222,7 @@ function updateTrayMenu() {
         { label: 'Rooms disponibles :', enabled: false },
         ...roomItems,
         { type: 'separator' },
-        { label: 'Quitter', click: () => app.quit() }
+        { label: `${process.env.ADDRESS}:8080`, click: () => app.quit() }
     ];
 
     const contextMenu = Menu.buildFromTemplate(template);
