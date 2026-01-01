@@ -29,33 +29,7 @@
     "style-loader": "^4.0.0"
   },
   "config": {
-    "forge": {
-      "forge": "./forge.config.js",
-      "packagerConfig": {
-        "extendInfo": {
-          "LSUIElement": "1"
-        }
-      },
-      "makers": [
-        {
-          "name": "@electron-forge/maker-squirrel"
-        },
-        {
-          "name": "@electron-forge/maker-zip",
-          "platforms": [
-            "darwin"
-          ]
-        },
-        {
-          "name": "@electron-forge/maker-deb",
-          "config": {}
-        },
-        {
-          "name": "@electron-forge/maker-rpm",
-          "config": {}
-        }
-      ]
-    }
+    "forge": "./forge.config.js"
   },
   "license": "MIT"
 }
