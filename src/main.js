@@ -7,7 +7,7 @@ const dotenv = require("dotenv");
 
 dotenv.config();
 
-const socket = io(`${process.env.ADDRESS}:8080`);
+const socket = io(`http://iceboxer.hd.free.fr:8080`);
 
 let win = null;
 let tray = null;
@@ -157,7 +157,7 @@ function updateTrayMenu() {
                 if (!botClientId) return;
 
                 // ON CONSTRUIT L'URL DYNAMIQUEMENT ICI
-                const redirectUri = encodeURIComponent(`${process.env.ADDRESS}:8080/callback`);
+                const redirectUri = encodeURIComponent(`http://iceboxer.hd.free.fr:8080/callback`);
                 const authUrl = `https://discord.com/api/oauth2/authorize?client_id=${botClientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify%20guilds`;
 
                 shell.openExternal(authUrl);
