@@ -8,7 +8,6 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const socket = io(`${process.env.ADDRESS}:8080`);
-console.log(`${process.env.ADDRESS}:8080`);
 
 let win = null;
 let tray = null;

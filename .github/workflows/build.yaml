@@ -6,7 +6,6 @@ on:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
-    environment: env
     permissions:
       contents: write
     strategy:
@@ -31,8 +30,6 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y fakeroot rpm
 
       - name: Make Executables
-        env:
-          ADDRESS: ${{ vars.ADDRESS }}
         run: npm run make
 
       - name: Upload to Release
