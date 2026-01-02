@@ -2,7 +2,7 @@
   "name": "livechat-desktop",
   "description": "Concept par Potatoze™ !",
   "keywords": [],
-  "main": "./src/main.js",
+  "main": ".webpack/main",
   "version": "0.3.1415",
   "author": "Ginbo",
   "scripts": {
