@@ -89,16 +89,23 @@ app.on('open-url', (event, url) => {
 
 // --- FENÊTRE PRINCIPALE ---
 function createWindow() {
+    // 1. On récupère l'écran principal dès le début pour être sûr
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width, height, x, y } = primaryDisplay.bounds;
+
     win = new BrowserWindow({
-        fullscreen: true,
+        fullscreen: false, // On évite le mode exclusif qui cache la barre des tâches
+        width: width,
+        height: height,
+        x: x,
+        y: y,
         resizable: false,
         transparent: true,
         alwaysOnTop: true,
         focusable: false,
         skipTaskbar: true,
         frame: false,
-        titleBarStyle: 'hidden',
-        type: 'panel',
+        type: 'panel', // 'panel' fonctionne souvent mieux que 'utility' sur Linux pour les overlays
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
@@ -106,17 +113,31 @@ function createWindow() {
         }
     });
 
-    if (process.platform === 'darwin') {
-        win.setAlwaysOnTop(true, 'screen-saver');
-        win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-    }
-
+    // Force la fenêtre au-dessus de tout (Screen Saver est le niveau le plus haut)
+    win.setAlwaysOnTop(true, 'screen-saver');
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     win.setIgnoreMouseEvents(true);
+
     win.loadFile('./src/index.html');
 
+    // --- C'EST ICI QUE LA MAGIE OPÈRE (AUTO-INITIALISATION) ---
+    // Dès que la page HTML est chargée, on simule les clics que vous faisiez à la main
+    win.webContents.on('did-finish-load', () => {
+        console.log("Initialisation automatique...");
+
+        // 1. On force le style "illustration" par défaut (le plus courant)
+        // Cela évite que l'image soit invisible ou mal cadrée au début
+        win.webContents.send('set-class', 'illustration');
+
+        // 2. On force le recalage sur l'écran principal
+        // Linux a parfois besoin qu'on lui rappelle la taille après le chargement
+        win.setBounds(primaryDisplay.bounds);
+
+        console.log("Overlay calé sur l'écran principal et style appliqué.");
+    });
+
     win.once('ready-to-show', () => {
-        // On affiche sans prendre le focus
-        win.showInactive(); 
+        win.showInactive();
     });
 }
 
@@ -247,11 +268,25 @@ app.whenReady().then(() => {
     loadConfig();
     createWindow();
 
-    const iconPath = path.join(__dirname, '../assets/icons/romain_guillon.jpg');
-    tray = new Tray(nativeImage.createFromPath(iconPath));
-    tray.setToolTip('LiveChat-Desktop');
+    const iconPath = path.join(process.cwd(), 'assets/icons/romain_guillon.jpg');
 
-    updateTrayMenu();
+    let icon;
+    if (fs.existsSync(iconPath)) {
+        // On redimensionne en 32x32
+        icon = nativeImage.createFromPath(iconPath).resize({ width: 32, height: 32 });
+    } else {
+        // Fallback : Carré Rouge
+        icon = nativeImage.createFromDataURL('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAIKADAAQAAAABAAAAIAAAAACshmLzAAAAHElEQVRYCe3BMQEAAADCoPVPbQ0PoAAAAADgNxVrAAH4wdylAAAAAElFTkSuQmCC');
+    }
+
+    try {
+        tray = new Tray(icon);
+        tray.setToolTip('LiveChat-Desktop');
+        app.tray = tray;
+        updateTrayMenu();
+    } catch (e) {
+        console.error("Impossible de créer le Tray :", e);
+    }
 
     screen.on('display-added', updateTrayMenu);
     screen.on('display-removed', updateTrayMenu);
