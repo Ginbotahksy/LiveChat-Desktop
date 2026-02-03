@@ -1,58 +1,27 @@
 {
   "name": "livechat-desktop",
-  "description": "Concept par Potatoze™ !",
-  "keywords": [],
-  "main": "./src/main.js",
+  "description": "Concept par Potatoze !",
   "version": "0.3.1415",
-  "author": "Ginbo",
+  "main": ".webpack/main",
   "scripts": {
     "start": "electron-forge start",
     "package": "electron-forge package",
-    "make": "electron-forge make",
-    "publish": "electron-forge publish",
-    "lint": "echo \"No linting configured\""
+    "make": "electron-forge make"
   },
   "dependencies": {
     "socket.io-client": "^4.8.3",
-    "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7",
+    "electron-squirrel-startup": "^1.0.0"
   },
   "devDependencies": {
-    "@electron-forge/cli": "7.9.0",
-    "@electron-forge/maker-deb": "7.9.0",
-    "@electron-forge/maker-rpm": "7.9.0",
-    "@electron-forge/maker-squirrel": "7.9.0",
-    "@electron-forge/maker-zip": "7.9.0",
-    "css-loader": "^7.1.2",
-    "electron": "39.2.7",
-    "style-loader": "^4.0.0"
-  },
-  "config": {
-    "forge": {
-      "packagerConfig": {
-        "extendInfo": {
-          "LSUIElement": "1"
-        }
-      },
-      "makers": [
-        {
-          "name": "@electron-forge/maker-squirrel"
-        },
-        {
-          "name": "@electron-forge/maker-zip",
-          "platforms": [
-            "darwin"
-          ]
-        },
-        {
-          "name": "@electron-forge/maker-deb",
-          "config": {}
-        },
-        {
-          "name": "@electron-forge/maker-rpm",
-          "config": {}
-        }
-      ]
-    }
-  },
-  "license": "MIT"
+    "@electron-forge/cli": "^7.3.0",
+    "@electron-forge/maker-deb": "^7.3.0",
+    "@electron-forge/maker-rpm": "^7.3.0",
+    "@electron-forge/maker-squirrel": "^7.3.0",
+    "@electron-forge/maker-zip": "^7.3.0",
+    "@electron-forge/plugin-webpack": "^7.3.0",
+    "css-loader": "^6.10.0",
+    "electron": "29.1.0",
+    "style-loader": "^3.3.4"
+  }
 }
