@@ -29,8 +29,26 @@
   "config": {
     "forge": {
       "packagerConfig": {
+        "executableName": "livechat-desktop",
+        "asar": true,
+        "protocols": [
+          {
+            "name": "LiveChat Desktop Protocol",
+            "schemes": [
+              "electron-app"
+            ]
+          }
+        ],
         "extendInfo": {
-          "LSUIElement": "1"
+          "LSUIElement": "1",
+          "CFBundleURLTypes": [
+            {
+              "CFBundleURLName": "LiveChat Desktop Protocol",
+              "CFBundleURLSchemes": [
+                "electron-app"
+              ]
+            }
+          ]
         }
       },
       "makers": [

@@ -1,12 +1,13 @@
-const { app, BrowserWindow, Tray, Menu, nativeImage, screen, shell, protocol } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, screen, shell } = require('electron');
 const path = require('node:path');
 const { io } = require("socket.io-client");
 const fs = require('node:fs');
-const CONFIG_PATH = path.join(app.getPath('userData'), 'configLiveChat.json');
 const dotenv = require("dotenv");
 
 dotenv.config();
 
+// Chemins et variables globales
+const CONFIG_PATH = path.join(app.getPath('userData'), 'configLiveChat.json');
 const socket = io(`http://iceboxer.hd.free.fr:8080`);
 
 let win = null;
@@ -15,90 +16,101 @@ let activeRooms = new Set();
 let userId = null;
 let clientGuilds = [];
 let botClientId = null;
+let pendingUrl = null; // Stocke l'URL d'auth si l'app n'est pas encore prête
 
+// --- PERSISTANCE ---
 function saveConfig() {
     const config = {
         userId: userId,
-        activeRooms: Array.from(activeRooms) // On transforme le Set en Tableau
+        activeRooms: Array.from(activeRooms)
     };
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(config));
 }
 
 function loadConfig() {
     if (fs.existsSync(CONFIG_PATH)) {
-        const data = JSON.parse(fs.readFileSync(CONFIG_PATH));
-        userId = data.userId || null;
-        activeRooms = new Set(data.activeRooms || []);
-        return true;
+        try {
+            const data = JSON.parse(fs.readFileSync(CONFIG_PATH));
+            userId = data.userId || null;
+            activeRooms = new Set(data.activeRooms || []);
+            return true;
+        } catch (e) {
+            console.error("Erreur lecture config:", e);
+        }
     }
     return false;
 }
 
-const isPrimaryInstance = app.requestSingleInstanceLock();
-
-if (!isPrimaryInstance) {
-    // Si c'est une deuxième instance, on ferme immédiatement
-    app.quit();
-} else {
-    // Si c'est l'instance principale, on écoute les tentatives d'ouverture d'une 2ème instance
-    app.on('second-instance', (event, commandLine) => {
-        // Quelqu'un a essayé de lancer une deuxième instance (probablement le lien OAuth)
-        if (win) {
-            if (win.isMinimized()) win.restore();
-            win.focus();
-        }
-
-        // On récupère l'URL dans les arguments de la ligne de commande (Windows/Linux)
-        const url = commandLine.pop();
-        handleAuthUrl(url);
-    });
-
-    // --- GESTION DU PROTOCOLE (DEEP LINKING) ---
-    if (process.defaultApp) {
-        if (process.argv.length >= 2) {
-            app.setAsDefaultProtocolClient('electron-app', process.execPath, [path.resolve(process.argv[1])]);
-        }
-    } else {
-        app.setAsDefaultProtocolClient('electron-app');
+// --- GESTION DU PROTOCOLE (DEEP LINKING) ---
+if (process.defaultApp) {
+    if (process.argv.length >= 2) {
+        app.setAsDefaultProtocolClient('electron-app', process.execPath, [path.resolve(process.argv[1])]);
     }
+} else {
+    app.setAsDefaultProtocolClient('electron-app');
 }
 
-// Fonction centralisée pour traiter l'URL d'auth
+// Fonction centralisée pour traiter l'URL d'authentification
 function handleAuthUrl(url) {
+    if (!url) return;
     try {
         const urlObj = new URL(url);
         if (urlObj.hostname === 'auth') {
             userId = urlObj.searchParams.get('id');
-            console.log("ID reçu via protocole :", userId);
+            console.log("ID reçu :", userId);
 
             if (userId && socket.connected) {
                 socket.emit("get-my-guilds", userId);
-                updateTrayMenu();
             }
+            updateTrayMenu();
+            saveConfig();
         }
     } catch (e) {
-        console.error("URL invalide :", url);
+        console.error("URL invalide ou malformée :", url);
     }
 }
 
-// Garde aussi cet événement pour macOS
-app.on('open-url', (event, url) => {
-    event.preventDefault();
-    handleAuthUrl(url);
-});
+// --- LOGIQUE D'INSTANCE UNIQUE ---
+const isPrimaryInstance = app.requestSingleInstanceLock();
+
+if (!isPrimaryInstance) {
+    app.quit();
+} else {
+    // Événement Windows/Linux
+    app.on('second-instance', (event, commandLine) => {
+        if (win) {
+            if (win.isMinimized()) win.restore();
+            win.focus();
+        }
+        const url = commandLine.pop();
+        handleAuthUrl(url);
+    });
+
+    // Événement macOS (Deep Linking)
+    app.on('open-url', (event, url) => {
+        event.preventDefault();
+        if (app.isReady()) {
+            handleAuthUrl(url);
+        } else {
+            pendingUrl = url;
+        }
+    });
+}
 
 // --- FENÊTRE PRINCIPALE ---
 function createWindow() {
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width, height } = primaryDisplay.bounds;
+
     win = new BrowserWindow({
-        fullscreen: true,
-        resizable: false,
+        width: width,
+        height: height,
         transparent: true,
         alwaysOnTop: true,
         focusable: false,
-        skipTaskbar: true,
+        skipTaskbar: false,
         frame: false,
-        titleBarStyle: 'hidden',
-        type: 'panel',
+        type: 'panel', // Nécessaire pour macOS
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
@@ -106,25 +118,27 @@ function createWindow() {
         }
     });
 
+    // Configuration spécifique macOS pour le mode "Overlay"
     if (process.platform === 'darwin') {
-        win.setAlwaysOnTop(true, 'screen-saver');
         win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+        win.setAlwaysOnTop(true, 'screen-saver');
+        win.setIgnoreMouseEvents(true, { forward: true });
+    } else {
+        win.setIgnoreMouseEvents(true);
+        win.setFullScreen(true);
     }
 
-    win.setIgnoreMouseEvents(true);
-    win.loadFile('./src/index.html');
-
+    win.loadFile(path.join(__dirname, 'index.html'));
     win.once('ready-to-show', () => {
-        // On affiche sans prendre le focus
-        win.showInactive(); 
+        win.showInactive();
     });
 }
 
-// --- GESTION DU MENU TRAY ---
+// --- MENU TRAY ---
 function updateTrayMenu() {
-    const displays = screen.getAllDisplays();
+    if (!tray) return;
 
-    // Éléments du menu pour les écrans
+    const displays = screen.getAllDisplays();
     const displayItems = displays.map((display, index) => ({
         label: `Écran ${index + 1}: ${display.label}`,
         type: 'radio',
@@ -132,11 +146,10 @@ function updateTrayMenu() {
         click: () => {
             const { x, y, width, height } = display.bounds;
             win.setBounds({ x, y, width, height });
-            win.setFullScreen(true);
+            if (process.platform !== 'darwin') win.setFullScreen(true);
         }
     }));
 
-    // Éléments du menu pour les rooms (serveurs)
     const roomItems = clientGuilds.length > 0
         ? clientGuilds.map(guild => ({
             label: guild.name,
@@ -150,141 +163,104 @@ function updateTrayMenu() {
         { label: userId ? `Connecté: ${userId}` : 'Non connecté', enabled: false },
         {
             label: 'Se connecter à Discord',
-            // On désactive le bouton tant qu'on n'a pas reçu l'ID du bot
             enabled: !!botClientId && !userId,
             visible: !userId,
             click: () => {
-                if (!botClientId) return;
-
-                // ON CONSTRUIT L'URL DYNAMIQUEMENT ICI
                 const redirectUri = encodeURIComponent(`http://iceboxer.hd.free.fr:8080/callback`);
                 const authUrl = `https://discord.com/api/oauth2/authorize?client_id=${botClientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify%20guilds`;
-
                 shell.openExternal(authUrl);
             }
         },
         {
-            label: 'Recharger la liste des serveurs',
-            enabled: !!userId, // Actif seulement si on est connecté
+            label: 'Déconnexion',
+            visible: !!userId,
             click: () => {
-                console.log("Rechargement des serveurs...");
-                socket.emit("get-my-guilds", userId);
+                userId = null;
+                activeRooms.clear();
+                saveConfig();
+                updateTrayMenu();
             }
         },
+        { type: 'separator' },
+        { label: 'Recharger les serveurs', enabled: !!userId, click: () => socket.emit("get-my-guilds", userId) },
         { type: 'separator' },
         { label: 'Style : Fullscreen', click: () => win.webContents.send('set-class', 'fullscreen') },
         { label: 'Style : Illustration', click: () => win.webContents.send('set-class', 'illustration') },
         { type: 'separator' },
-        { label: 'Tests médias :', enabled: false },
-        {
-            label: 'Test : Image (Antonin)',
-            click: () => {
-                const localPath = path.resolve(__dirname, '../assets/bureau_homosexuel.png');
-
-                win.webContents.send('update-media', {
-                    url: `file://${localPath}`,
-                    type: 'image',
-                    text: "Je peux voir ta mère ?",
-                    duration: 2000
-                },);
-            }
-        },
-        {
-            label: 'Test : Image (Romain)',
-            click: () => {
-                const localPath = path.resolve(__dirname, '../assets/icons/romain_guillon.jpg');
-
-                win.webContents.send('update-media', {
-                    url: `file://${localPath}`,
-                    type: 'image',
-                    text: "mec super moche",
-                    duration: 2000
-                });
-            }
-        },
-        {
-            label: 'Test : Vidéo',
-            click: () => {
-                const localPath = path.resolve(__dirname, '../assets/dont_care_im_diogenemaxxing.mp4');
-
-                win.webContents.send('update-media', {
-                    url: `file://${localPath}`,
-                    type: 'video',
-                    text: "Mehdi de Thèbes"
-                });
-            }
-        },
-        { type: 'separator' },
         { label: 'Choisir l\'écran :', enabled: false },
         ...displayItems,
         { type: 'separator' },
-        { label: 'Rooms disponibles :', enabled: false },
+        { label: 'Rooms (Serveurs) :', enabled: false },
         ...roomItems,
         { type: 'separator' },
         { label: 'Quitter', click: () => app.quit() }
     ];
 
-    const contextMenu = Menu.buildFromTemplate(template);
-    tray.setContextMenu(contextMenu);
+    tray.setContextMenu(Menu.buildFromTemplate(template));
 }
 
-// --- FONCTIONS UTILES ---
 function toggleRoom(guildId) {
     if (activeRooms.has(guildId)) {
         activeRooms.delete(guildId);
-        socket.emit("leave-server-room", guildId); // On informe le bot qu'on quitte
+        socket.emit("leave-server-room", guildId);
     } else {
         activeRooms.add(guildId);
-        socket.emit("join-server-room", guildId); // On informe le bot qu'on rejoint
+        socket.emit("join-server-room", guildId);
     }
-
     saveConfig();
-    updateTrayMenu(); // Rafraîchir l'affichage des coches
+    updateTrayMenu();
 }
 
-// --- ÉVÉNEMENTS APP ---
+if (process.platform === 'darwin') {
+    app.commandLine.appendSwitch('disable-features', 'LayoutServiceColorSubpixel');
+}
+// --- INITIALISATION ---
 app.whenReady().then(() => {
     loadConfig();
+
     createWindow();
 
-    const iconPath = path.join(__dirname, '../assets/icons/romain_guillon.jpg');
-    tray = new Tray(nativeImage.createFromPath(iconPath));
+    // Utilisation d'une icône "Template" pour macOS
+    const iconPath = path.join(__dirname, '../assets/icons/template_romain_guillon.jpg');
+    const icon = nativeImage.createFromPath(iconPath).resize({ width: 18, height: 18 });
+    icon.setTemplateImage(true);
+
+    tray = new Tray(icon);
     tray.setToolTip('LiveChat-Desktop');
 
     updateTrayMenu();
+
+    if (pendingUrl) {
+        handleAuthUrl(pendingUrl);
+        pendingUrl = null;
+    }
 
     screen.on('display-added', updateTrayMenu);
     screen.on('display-removed', updateTrayMenu);
 });
 
+// --- SOCKETS ---
 socket.on("connect", () => {
     console.log("Connecté au serveur Socket");
-    if (userId) {
-        socket.emit("get-my-guilds", userId);
-        // Les rooms seront rejointes automatiquement via l'évenement list-guilds
-    }
+    if (userId) socket.emit("get-my-guilds", userId);
 });
 
 socket.on("bot-config", (config) => {
-    console.log("Config reçue du bot :", config);
     botClientId = config.clientId;
-    updateTrayMenu(); // On rafraîchit le menu pour activer le bouton "Se connecter"
+    updateTrayMenu();
 });
 
-// --- COMMUNICATION SOCKET ---
 socket.on("list-guilds", (guilds) => {
     clientGuilds = guilds;
     activeRooms.forEach(roomId => {
-        // On vérifie si le serveur est toujours dans la liste du bot
         if (guilds.some(g => g.id === roomId)) {
             socket.emit("join-server-room", roomId);
         } else {
-            activeRooms.delete(roomId); // Le bot n'est plus sur ce serveur
+            activeRooms.delete(roomId);
         }
     });
-
     saveConfig();
-    updateTrayMenu(); // On met à jour le menu quand on reçoit la liste
+    updateTrayMenu();
 });
 
 socket.on("display-media", (data) => {
@@ -298,4 +274,6 @@ socket.on("stop", () => {
     if (win) win.webContents.send('stop');
 });
 
-app.on('window-all-closed', () => app.quit());
+app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
+});

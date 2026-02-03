@@ -7,45 +7,47 @@ const audioTag = document.getElementById('audio_container');
 
 let Timer = null;
 
+/**
+ * Calcule la taille de police optimale pour macOS/Windows
+ */
 function getOptimalFontSize(text, maxWidth, maxHeight) {
-    // On crée un élément temporaire identique au conteneur
     const tester = document.createElement('div');
     tester.className = 'offscreen-test';
+    tester.style.position = 'absolute';
+    tester.style.visibility = 'hidden';
+    tester.style.whiteSpace = 'pre-wrap'; // Important pour le multi-ligne
     tester.style.width = maxWidth + 'px';
-    tester.style.fontFamily = "'Segoe UI', sans-serif";
+    // Police système standard sur Mac (San Francisco) et Windows (Segoe UI)
+    tester.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
     tester.style.fontWeight = "bold";
     tester.style.lineHeight = "1.1";
     tester.innerText = text;
     document.body.appendChild(tester);
 
-    let fontSize = 150; // Taille max
-    
-    // Boucle de réduction de taille
+    let fontSize = 150;
+
     while (fontSize > 15) {
         tester.style.fontSize = fontSize + 'px';
-        // Si le texte rentre dans les dimensions
         if (tester.scrollHeight <= maxHeight && tester.scrollWidth <= maxWidth) {
             break;
         }
         fontSize--;
     }
 
-    // On nettoie le DOM
     document.body.removeChild(tester);
     return fontSize;
 }
 
 function hideAllMedia() {
     imgTag.style.display = 'none';
-    imgTag.style.display = 'none';
     videoTag.style.display = 'none';
 
     [videoTag, audioTag].forEach(el => {
         el.pause();
         el.src = "";
+        el.load(); // Force la libération des ressources sur Mac
     });
 
-    videoTag.src = "";
     imgTag.src = "";
     subtitleTag.innerText = "";
 
@@ -55,6 +57,7 @@ function hideAllMedia() {
     }
 }
 
+// Sécurité pour l'autoplay sur macOS
 [videoTag, audioTag].forEach(tag => {
     tag.addEventListener('ended', () => hideAllMedia());
 });
@@ -68,7 +71,6 @@ ipcRenderer.on('set-class', (event, className) => {
         el.classList.remove('fullscreen', 'illustration');
         el.classList.add(className);
     });
-    console.log(`Style appliqué : ${className}`);
 });
 
 ipcRenderer.on('update-media', (event, data) => {
@@ -79,36 +81,35 @@ ipcRenderer.on('update-media', (event, data) => {
 
     if (data.text) {
         const container = document.getElementById('subtitle_container');
-        
-        // 1. On cache le conteneur pendant qu'on prépare
         container.style.visibility = 'hidden';
 
-        // 2. On calcule la taille optimale hors-écran
+        // Sur macOS, les dimensions peuvent mettre quelques ms à se stabiliser
         const bestSize = getOptimalFontSize(
-            data.text, 
-            container.clientWidth, 
-            container.clientHeight
+            data.text,
+            container.clientWidth || window.innerWidth * 0.9,
+            container.clientHeight || window.innerHeight * 0.3
         );
 
-        // 3. On applique tout d'un coup (Texte + Taille)
         container.style.fontSize = bestSize + 'px';
         container.innerText = data.text;
-
-        // 4. On rend visible : le texte apparaît déjà à la bonne taille
         container.style.visibility = 'visible';
     }
 
     if (data.url) {
+        // macOS est strict sur les URLs file://, on s'assure qu'elles sont bien formées
+        const mediaUrl = data.url;
+
         if (isVideo) {
-            videoTag.src = data.url;
+            videoTag.src = mediaUrl;
             videoTag.style.display = 'block';
-            videoTag.play();
+            videoTag.play().catch(err => console.error("Erreur lecture vidéo:", err));
         } else if (isAudio) {
-            audioTag.src = data.url;
-            audioTag.play();
+            audioTag.src = mediaUrl;
+            audioTag.play().catch(err => console.error("Erreur lecture audio:", err));
         } else if (data.type === 'image') {
-            imgTag.src = data.url;
+            imgTag.src = mediaUrl;
             imgTag.onload = () => { imgTag.style.display = 'block'; };
+            imgTag.onerror = () => { console.error("Erreur chargement image:", mediaUrl); };
         }
     }
 
@@ -119,16 +120,11 @@ ipcRenderer.on('update-media', (event, data) => {
     }
 });
 
-// Demander les serveurs au bot
-socket.emit("get-my-guilds", userId);
-
-// Recevoir la liste et créer les boutons/options
-socket.on("list-guilds", (guilds) => {
-    const select = document.getElementById("server-select");
-    guilds.forEach(guild => {
-        let opt = document.createElement("option");
-        opt.value = guild.id;
-        opt.innerHTML = guild.name;
-        select.appendChild(opt);
-    });
-});
+/**
+ * ATTENTION : Vous aviez du code Socket.io ici.
+ * Dans votre architecture, la Socket est gérée dans MAIN.JS.
+ * Si vous voulez afficher une liste de serveurs dans le HTML (index.html),
+ * vous devez envoyer les données du Main vers le Renderer via ipcRenderer.send/on.
+ * * Si votre interface est purement un Tray (menu contextuel),
+ * ce code ci-dessous est inutile dans renderer.js.
+ */
