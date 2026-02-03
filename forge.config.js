@@ -5,6 +5,9 @@ module.exports = {
     extendInfo: {
       LSUIElement: "1", // Mode agent pour macOS
     },
+    extraResource: [
+      'assets/'
+    ]
   },
   rebuildConfig: {},
   makers: [
