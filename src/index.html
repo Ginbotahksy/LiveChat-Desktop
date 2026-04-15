@@ -3,8 +3,12 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: https:; media-src 'self' file: http: https:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; 
+               script-src 'self'; 
+               style-src 'self' 'unsafe-inline'; 
+               img-src 'self' file: https:; 
+               child-src https:; 
+               frame-src https:;">
   <link href="styles.css" rel="stylesheet">
   <title>LiveChat-Desktop</title>
 </head>
@@ -14,6 +18,7 @@
     <img id="image_container" class="illustration">
     <video id="video_container" class="illustration" autoplay></video>
     <audio id="audio_container" autoplay></audio>
+    <iframe id="web_container" class="illustration" frameborder="0" scrolling="no"></iframe>
     <div id="subtitle_container"></div>
   </div>
 

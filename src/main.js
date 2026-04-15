@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, nativeImage, screen, shell, protocol } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, screen, shell, session } = require('electron');
 const path = require('node:path');
 const { io } = require("socket.io-client");
 const fs = require('node:fs');
@@ -110,9 +110,35 @@ function createWindow() {
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
+            webviewTag: true,
             webSecurity: false,
         }
     });
+
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+        let responseHeaders = details.responseHeaders;
+
+        // Liste des headers de sécurité à supprimer
+        const headersToDrop = [
+            'x-frame-options',
+            'content-security-policy',
+            'x-content-security-policy',
+            'frame-options'
+        ];
+
+        // On filtre les headers en ignorant la casse
+        Object.keys(responseHeaders).forEach(headerName => {
+            if (headersToDrop.includes(headerName.toLowerCase())) {
+                delete responseHeaders[headerName];
+            }
+        });
+
+        callback({
+            cancel: false,
+            responseHeaders: responseHeaders
+        });
+    });
+
 
     win.setAlwaysOnTop(true, 'screen-saver');
     win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -125,7 +151,7 @@ function createWindow() {
     });
 
     win.once('ready-to-show', () => {
-        win.showInactive(); 
+        win.showInactive();
     });
 }
 

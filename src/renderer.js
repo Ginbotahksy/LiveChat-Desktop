@@ -4,6 +4,7 @@ const imgTag = document.getElementById('image_container');
 const videoTag = document.getElementById('video_container');
 const subtitleTag = document.getElementById('subtitle_container');
 const audioTag = document.getElementById('audio_container');
+const webTag = document.getElementById('web_container');
 
 let Timer = null;
 
@@ -19,7 +20,7 @@ function getOptimalFontSize(text, maxWidth, maxHeight) {
     document.body.appendChild(tester);
 
     let fontSize = 150; // Taille max
-    
+
     // Boucle de réduction de taille
     while (fontSize > 15) {
         tester.style.fontSize = fontSize + 'px';
@@ -37,8 +38,8 @@ function getOptimalFontSize(text, maxWidth, maxHeight) {
 
 function hideAllMedia() {
     imgTag.style.display = 'none';
-    imgTag.style.display = 'none';
     videoTag.style.display = 'none';
+    webTag.style.display = 'none';
 
     [videoTag, audioTag].forEach(el => {
         el.pause();
@@ -48,6 +49,12 @@ function hideAllMedia() {
     videoTag.src = "";
     imgTag.src = "";
     subtitleTag.innerText = "";
+
+    try {
+        if (webTag.getAttribute('src') !== "about:blank") {
+            webTag.src = "about:blank";
+        }
+    } catch (e) { }
 
     if (Timer) {
         clearTimeout(Timer);
@@ -64,7 +71,7 @@ ipcRenderer.on('stop', () => {
 });
 
 ipcRenderer.on('set-class', (event, className) => {
-    [imgTag, videoTag].forEach(el => {
+    [imgTag, videoTag, webTag].forEach(el => {
         el.classList.remove('fullscreen', 'illustration');
         el.classList.add(className);
     });
@@ -77,45 +84,58 @@ ipcRenderer.on('update-media', (event, data) => {
     const isVideo = (data.url && data.type === 'video');
     const isAudio = (data.url && data.type === 'audio');
 
+    const startTimer = (ms) => {
+        if (Timer) clearTimeout(Timer);
+        Timer = setTimeout(() => {
+            hideAllMedia();
+        }, ms);
+    };
+
+    // 1. GESTION DU TEXTE (Immédiat)
     if (data.text) {
         const container = document.getElementById('subtitle_container');
-        
-        // 1. On cache le conteneur pendant qu'on prépare
         container.style.visibility = 'hidden';
-
-        // 2. On calcule la taille optimale hors-écran
-        const bestSize = getOptimalFontSize(
-            data.text, 
-            container.clientWidth, 
-            container.clientHeight
-        );
-
-        // 3. On applique tout d'un coup (Texte + Taille)
+        const bestSize = getOptimalFontSize(data.text, container.clientWidth, container.clientHeight);
         container.style.fontSize = bestSize + 'px';
         container.innerText = data.text;
-
-        // 4. On rend visible : le texte apparaît déjà à la bonne taille
         container.style.visibility = 'visible';
+
+        // Si c'est du texte seul (pas de média, pas de lien), on lance le timer de suite
+        if (!data.url && !data.lien && data.duration) {
+            startTimer(data.duration);
+        }
     }
 
+    // 2. GESTION DES MÉDIAS (Image, Vidéo, Audio)
     if (data.url) {
         if (isVideo) {
+            videoTag.oncanplay = () => {
+                videoTag.style.display = 'block';
+                // Le timer de la vidéo est géré par l'event 'ended', 
+                // mais on peut mettre un fallback de sécurité avec data.duration
+            };
             videoTag.src = data.url;
-            videoTag.style.display = 'block';
             videoTag.play();
         } else if (isAudio) {
             audioTag.src = data.url;
             audioTag.play();
         } else if (data.type === 'image') {
+            imgTag.onload = () => {
+                imgTag.style.display = 'block';
+                if (data.duration) startTimer(data.duration); // On lance quand l'image est chargée
+            };
             imgTag.src = data.url;
-            imgTag.onload = () => { imgTag.style.display = 'block'; };
         }
     }
 
-    if (!isVideo && !isAudio && data.duration) {
-        Timer = setTimeout(() => {
-            hideAllMedia();
-        }, data.duration);
+    // 3. GESTION DU LIEN (Webview)
+    if (data.lien) {
+         webTag.onload = () => {
+            webTag.style.display = 'block';
+            if ((data.duration) && !data.url) startTimer(data.duration);
+        };
+
+        webTag.src = data.lien;
     }
 });
 
