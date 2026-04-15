@@ -19,9 +19,10 @@ let botClientId = null;
 function saveConfig() {
     const config = {
         userId: userId,
-        activeRooms: Array.from(activeRooms) // On transforme le Set en Tableau
+        activeRooms: Array.from(activeRooms)
     };
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(config));
+    console.log("config enregistrée à : " + CONFIG_PATH);
 }
 
 function loadConfig() {
@@ -89,8 +90,15 @@ app.on('open-url', (event, url) => {
 
 // --- FENÊTRE PRINCIPALE ---
 function createWindow() {
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width, height, x, y } = primaryDisplay.bounds;
+
     win = new BrowserWindow({
-        fullscreen: true,
+        fullscreen: false,
+        width: width,
+        height: height,
+        x: x,
+        y: y,
         resizable: false,
         transparent: true,
         alwaysOnTop: true,
@@ -106,16 +114,17 @@ function createWindow() {
         }
     });
 
-    if (process.platform === 'darwin') {
-        win.setAlwaysOnTop(true, 'screen-saver');
-        win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-    }
-
+    win.setAlwaysOnTop(true, 'screen-saver');
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     win.setIgnoreMouseEvents(true);
     win.loadFile('./src/index.html');
 
+    win.webContents.on('did-finish-load', () => {
+        win.webContents.send('set-class', 'illustration');
+        win.setBounds(primaryDisplay.bounds);
+    });
+
     win.once('ready-to-show', () => {
-        // On affiche sans prendre le focus
         win.showInactive(); 
     });
 }
@@ -247,7 +256,14 @@ app.whenReady().then(() => {
     loadConfig();
     createWindow();
 
-    const iconPath = path.join(__dirname, '../assets/icons/romain_guillon.jpg');
+    const iconPath = path.join(process.cwd(), 'assets/icons/romain_guillon.jpg');
+    let icon;
+    if (fs.existsSync(iconPath)) {
+        icon = nativeImage.createFromPath(iconPath).resize({ width: 32, height: 32 });
+    } else {
+        icon = nativeImage.createFromDataURL('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAIKADAAQAAAABAAAAIAAAAACshmLzAAAAHElEQVRYCe3BMQEAAADCoPVPbQ0PoAAAAADgNxVrAAH4wdylAAAAAElFTkSuQmCC');
+    }
+
     tray = new Tray(nativeImage.createFromPath(iconPath));
     tray.setToolTip('LiveChat-Desktop');
 
