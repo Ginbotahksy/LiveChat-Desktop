@@ -48,6 +48,8 @@ class TrayManager {
                 const { x, y, width, height } = display.bounds;
                 this.win.setBounds({ x, y, width, height });
                 this.win.setFullScreen(true);
+                // Forcer le rafraîchissement du menu pour mettre à jour la coche
+                setTimeout(() => this.updateMenu(), 100);
             }
         }));
 
