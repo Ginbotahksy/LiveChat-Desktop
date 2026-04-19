@@ -1,5 +1,3 @@
-const { ipcRenderer } = require('electron');
-
 const imgTag = document.getElementById('image_container');
 const videoTag = document.getElementById('video_container');
 const subtitleTag = document.getElementById('subtitle_container');
@@ -9,7 +7,6 @@ const webTag = document.getElementById('web_container');
 let Timer = null;
 
 function getOptimalFontSize(text, maxWidth, maxHeight) {
-    // On crée un élément temporaire identique au conteneur
     const tester = document.createElement('div');
     tester.className = 'offscreen-test';
     tester.style.width = maxWidth + 'px';
@@ -19,19 +16,15 @@ function getOptimalFontSize(text, maxWidth, maxHeight) {
     tester.innerText = text;
     document.body.appendChild(tester);
 
-    let fontSize = 150; // Taille max
-
-    // Boucle de réduction de taille
+    let fontSize = 150;
     while (fontSize > 15) {
         tester.style.fontSize = fontSize + 'px';
-        // Si le texte rentre dans les dimensions
         if (tester.scrollHeight <= maxHeight && tester.scrollWidth <= maxWidth) {
             break;
         }
         fontSize--;
     }
 
-    // On nettoie le DOM
     document.body.removeChild(tester);
     return fontSize;
 }
@@ -46,9 +39,9 @@ function hideAllMedia() {
         el.src = "";
     });
 
-    videoTag.src = "";
     imgTag.src = "";
     subtitleTag.innerText = "";
+    subtitleTag.style.visibility = 'hidden';
 
     try {
         if (webTag.getAttribute('src') !== "about:blank") {
@@ -66,89 +59,78 @@ function hideAllMedia() {
     tag.addEventListener('ended', () => hideAllMedia());
 });
 
-ipcRenderer.on('stop', () => {
-    hideAllMedia();
-});
-
-ipcRenderer.on('set-class', (event, className) => {
-    [imgTag, videoTag, webTag].forEach(el => {
-        el.classList.remove('fullscreen', 'illustration');
-        el.classList.add(className);
+// Utilisation de l'API exposée par le preload script
+if (window.electronAPI) {
+    window.electronAPI.onStop(() => {
+        hideAllMedia();
     });
-    console.log(`Style appliqué : ${className}`);
-});
 
-ipcRenderer.on('update-media', (event, data) => {
-    hideAllMedia();
+    window.electronAPI.onSetClass((className) => {
+        [imgTag, videoTag, webTag].forEach(el => {
+            el.classList.remove('fullscreen', 'illustration');
+            el.classList.add(className);
+        });
+        console.log(`Style appliqué : ${className}`);
+    });
 
-    const isVideo = (data.url && data.type === 'video');
-    const isAudio = (data.url && data.type === 'audio');
+    window.electronAPI.onUpdateMedia((data) => {
+        hideAllMedia();
 
-    const startTimer = (ms) => {
-        if (Timer) clearTimeout(Timer);
-        Timer = setTimeout(() => {
-            hideAllMedia();
-        }, ms);
-    };
+        const isVideo = (data.url && data.type === 'video');
+        const isAudio = (data.url && data.type === 'audio');
 
-    // 1. GESTION DU TEXTE (Immédiat)
-    if (data.text) {
-        const container = document.getElementById('subtitle_container');
-        container.style.visibility = 'hidden';
-        const bestSize = getOptimalFontSize(data.text, container.clientWidth, container.clientHeight);
-        container.style.fontSize = bestSize + 'px';
-        container.innerText = data.text;
-        container.style.visibility = 'visible';
-
-        // Si c'est du texte seul (pas de média, pas de lien), on lance le timer de suite
-        if (!data.url && !data.lien && data.duration) {
-            startTimer(data.duration);
-        }
-    }
-
-    // 2. GESTION DES MÉDIAS (Image, Vidéo, Audio)
-    if (data.url) {
-        if (isVideo) {
-            videoTag.oncanplay = () => {
-                videoTag.style.display = 'block';
-                // Le timer de la vidéo est géré par l'event 'ended', 
-                // mais on peut mettre un fallback de sécurité avec data.duration
-            };
-            videoTag.src = data.url;
-            videoTag.play();
-        } else if (isAudio) {
-            audioTag.src = data.url;
-            audioTag.play();
-        } else if (data.type === 'image') {
-            imgTag.onload = () => {
-                imgTag.style.display = 'block';
-                if (data.duration) startTimer(data.duration); // On lance quand l'image est chargée
-            };
-            imgTag.src = data.url;
-        }
-    }
-
-    // 3. GESTION DU LIEN (Webview)
-    if (data.lien) {
-         webTag.onload = () => {
-            webTag.style.display = 'block';
-            if ((data.duration) && !data.url) startTimer(data.duration);
+        const startTimer = (ms) => {
+            if (Timer) clearTimeout(Timer);
+            Timer = setTimeout(() => {
+                hideAllMedia();
+            }, ms);
         };
 
-        webTag.src = data.lien;
-    }
-});
+        // 1. GESTION DU TEXTE
+        if (data.text) {
+            subtitleTag.style.visibility = 'hidden';
+            const bestSize = getOptimalFontSize(data.text, subtitleTag.clientWidth, subtitleTag.clientHeight);
+            subtitleTag.style.fontSize = bestSize + 'px';
+            subtitleTag.innerText = data.text;
+            subtitleTag.style.visibility = 'visible';
 
-// Demander les serveurs au bot
-socket.emit("get-my-guilds", userId);
+            if (!data.url && !data.lien && data.duration) {
+                startTimer(data.duration);
+            }
+        }
 
-// Recevoir la liste et créer les boutons/options
-socket.on("list-guilds", (guilds) => {
-    const select = document.getElementById("server-select");
-    guilds.forEach(guild => {
-        let opt = document.createElement("option");
-        opt.value = guild.id;
-        opt.innerHTML = guild.name;
-        select.appendChild(opt);
+        // 2. GESTION DES MÉDIAS (Image, Vidéo, Audio)
+        if (data.url) {
+            console.log("Tentative de chargement du média :", data.url);
+
+            if (isVideo) {
+                videoTag.onerror = (e) => console.error("Erreur VideoTag :", videoTag.error);
+                videoTag.onplay = () => {
+                    console.log("Lecture vidéo démarrée");
+                    videoTag.style.display = 'block';
+                };
+
+                videoTag.src = data.url;
+                videoTag.play().catch(err => console.error("Erreur play() :", err));
+            } else if (isAudio) {
+                audioTag.src = data.url;
+                audioTag.play().catch(err => console.error("Erreur audio play() :", err));
+            } else if (data.type === 'image') {
+                imgTag.onload = () => {
+                    imgTag.style.display = 'block';
+                    if (data.duration) startTimer(data.duration);
+                };
+                imgTag.src = data.url;
+            }
+        }
+
+        // 3. GESTION DU LIEN (Webview/Iframe)
+        if (data.lien) {
+            webTag.onload = () => {
+                webTag.style.display = 'block';
+                if (data.duration && !data.url) startTimer(data.duration);
+            };
+            webTag.src = data.lien;
+        }
     });
-});
+}
