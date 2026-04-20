@@ -33,10 +33,25 @@
       },
       "makers": [
         {
+          "name": "@electron-forge/maker-squirrel"
+        },
+        {
+          "name": "@electron-forge/maker-zip",
+          "platforms": [
+            "darwin"
+          ]
+        },
+        {
+          "name": "@electron-forge/maker-rpm",
+          "config": {}
+        },
+        {
           "name": "@electron-forge/maker-deb",
           "config": {
             "options": {
-              "mimeType": ["x-scheme-handler/electron-app"]
+              "mimeType": [
+                "x-scheme-handler/electron-app"
+              ]
             }
           }
         }
