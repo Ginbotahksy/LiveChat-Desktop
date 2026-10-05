@@ -88,16 +88,6 @@ class TrayManager {
                     this.updateMenu();
                 }
             },
-            {
-                label: 'DÉBOGAGE : Simuler Auth (ID 324189371052064768)',
-                visible: !configManager.userId,
-                click: () => {
-                    console.log("Simulation d'authentification ID 324189371052064768...");
-                    configManager.setUserId("324189371052064768");
-                    socketManager.getMyGuilds();
-                    this.updateMenu();
-                }
-            },
             { type: 'separator' },
             { label: 'Style : Fullscreen', click: () => this.win.webContents.send('set-class', 'fullscreen') },
             { label: 'Style : Illustration', click: () => this.win.webContents.send('set-class', 'illustration') },
