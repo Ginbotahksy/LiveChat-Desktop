@@ -42,7 +42,7 @@ jobs:
 
       - name: Build Linux Executable
         run: |
-          python -m PyInstaller \
+          python -m PyInstaller --distpath bin \
             --noconfirm \
             --onefile \
             --windowed \
@@ -58,7 +58,7 @@ jobs:
         with:
           overwrite_files: true
           files: |
-            dist/livechat-desktop-linux
+            bin/livechat-desktop-linux
             dist/*.whl
             dist/*.tar.gz
 
