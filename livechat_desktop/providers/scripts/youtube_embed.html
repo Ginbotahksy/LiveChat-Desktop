@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: transparent; }
+        iframe { width: 100%; height: 100%; border: none; }
+    </style>
+</head>
+<body>
+    <iframe id="player" src="{embed_url}" allow="autoplay; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    <script>
+        var iframe = document.getElementById("player");
+        iframe.onload = function() {
+            iframe.contentWindow.postMessage('{"event":"listening","id":1}', '*');
+        };
+        window.addEventListener("message", function(event) {
+            try {
+                var data = JSON.parse(event.data);
+                // YT.PlayerState.ENDED == 0
+                if (data.event === "infoDelivery" && data.info && data.info.playerState === 0) {
+                    document.title = "VIDEO_ENDED";
+                }
+                if (data.event === "onStateChange" && data.info === 0) {
+                    document.title = "VIDEO_ENDED";
+                }
+            } catch(e) {}
+        });
+    </script>
+</body>
+</html>

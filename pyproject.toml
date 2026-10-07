@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "livechat-desktop"
+version = "1.0.0"
+description = "A desktop overlay for LiveChat built with PyQt6"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+  {name = "Romain Guillon"}
+]
+dependencies = [
+    "PyQt6>=6.11.0",
+    "python-socketio[client]>=5.11.0",
+    "websocket-client>=1.8.0",
+    "requests>=2.32.0",
+    "yt-dlp>=2024.0.0",
+    "PyQt6-WebEngine>=6.11.0"
+]
+
+[project.gui-scripts]
+livechat-desktop = "livechat_desktop.__main__:main"
+
+[tool.setuptools]
+packages = ["livechat_desktop", "livechat_desktop.providers", "livechat_desktop.assets.icons", "livechat_desktop.providers.scripts"]
+
+[tool.setuptools.package-data]
+livechat_desktop = ["assets/icons/*", "providers/scripts/*"]
