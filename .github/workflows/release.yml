@@ -52,6 +52,50 @@ jobs:
             --add-data "livechat_desktop/providers/scripts:livechat_desktop/providers/scripts" \
             livechat_desktop/__main__.py
 
+
+      - name: Build Debian (.deb) Package
+        run: |
+          mkdir -p package/DEBIAN
+          mkdir -p package/usr/bin
+          mkdir -p package/usr/share/applications
+          mkdir -p package/usr/share/pixmaps
+          
+          # Copier le binaire
+          cp bin/livechat-desktop-linux package/usr/bin/livechat-desktop
+          chmod +x package/usr/bin/livechat-desktop
+          
+          # Copier l'icône
+          cp livechat_desktop/assets/icons/romain_guillon.jpg package/usr/share/pixmaps/livechat-desktop.jpg
+          
+          # Créer le fichier .desktop
+          cat << 'DESKTOP' > package/usr/share/applications/livechat-desktop.desktop
+          [Desktop Entry]
+          Name=LiveChat Desktop
+          Comment=A desktop overlay for LiveChat
+          Exec=/usr/bin/livechat-desktop
+          Icon=livechat-desktop.jpg
+          Terminal=false
+          Type=Application
+          Categories=Utility;
+          DESKTOP
+          
+          # Extraire la version du tag GitHub ou utiliser 1.0.0 par défaut
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          if [[ "$VERSION" == refs/* ]]; then VERSION="1.0.0"; fi
+          
+          # Créer le fichier control
+          cat << CONTROL > package/DEBIAN/control
+          Package: livechat-desktop
+          Version: ${VERSION}
+          Architecture: amd64
+          Maintainer: Romain Guillon
+          Description: A desktop overlay for LiveChat built with PyQt6
+          CONTROL
+          
+          # Construire le .deb
+          dpkg-deb --build package livechat-desktop_${VERSION}_amd64.deb
+          mkdir -p bin
+          mv livechat-desktop_${VERSION}_amd64.deb bin/
       - name: Upload Artifacts to GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release'
@@ -59,6 +103,7 @@ jobs:
           overwrite_files: true
           files: |
             bin/livechat-desktop-linux
+            bin/*.deb
             dist/*.whl
             dist/*.tar.gz
 
