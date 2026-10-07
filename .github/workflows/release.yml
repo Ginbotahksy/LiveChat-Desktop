@@ -34,7 +34,7 @@ jobs:
 
       - name: Generate icon.ico
         run: |
-          python -c "from PIL import Image; img = Image.open('livechat_desktop/assets/icons/romain_guillon.jpg'); img.save('icon.ico')"
+          python -c "from PIL import Image; img = Image.open('livechat_desktop/assets/icons/wilson_maillard.png'); img.save('icon.ico')"
 
       - name: Build Python Package (sdist & wheel)
         run: |
@@ -65,7 +65,7 @@ jobs:
           chmod +x package/usr/bin/livechat-desktop
           
           # Copier l'icône
-          cp livechat_desktop/assets/icons/romain_guillon.jpg package/usr/share/pixmaps/livechat-desktop.jpg
+          cp livechat_desktop/assets/icons/wilson_maillard.png package/usr/share/pixmaps/livechat-desktop.png
           
           # Créer le fichier .desktop
           cat << 'DESKTOP' > package/usr/share/applications/livechat-desktop.desktop
@@ -73,7 +73,7 @@ jobs:
           Name=LiveChat Desktop
           Comment=A desktop overlay for LiveChat
           Exec=/usr/bin/livechat-desktop
-          Icon=livechat-desktop.jpg
+          Icon=livechat-desktop.png
           Terminal=false
           Type=Application
           Categories=Utility;
@@ -133,7 +133,7 @@ jobs:
 
       - name: Generate icon.ico
         run: |
-          python -c "from PIL import Image; img = Image.open('livechat_desktop/assets/icons/romain_guillon.jpg'); img.save('icon.ico')"
+          python -c "from PIL import Image; img = Image.open('livechat_desktop/assets/icons/wilson_maillard.png'); img.save('icon.ico')"
 
       - name: Build Windows Executable (.exe)
         run: |
