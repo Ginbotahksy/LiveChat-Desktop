@@ -8,7 +8,9 @@ from PyQt6.QtWidgets import QApplication
 from PyQt6.QtGui import QIcon
 
 # Obligatoire pour garantir que Wayland ne capture pas l'overlay et laisse passer les clics
-os.environ['QT_QPA_PLATFORM'] = 'xcb'
+# Obligatoire pour garantir que Wayland ne capture pas l'overlay et laisse passer les clics (uniquement sur Linux)
+if sys.platform.startswith('linux'):
+    os.environ['QT_QPA_PLATFORM'] = 'xcb'
 
 from livechat_desktop.socket_manager import SocketManager
 from livechat_desktop.overlay import Overlay
