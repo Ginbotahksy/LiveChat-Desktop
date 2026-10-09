@@ -5,7 +5,7 @@ import requests
 from .base import MediaProvider
 
 class YouTubeProvider(MediaProvider):
-    YOUTUBE_URL_REGEX = r'(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})'
+    YOUTUBE_URL_REGEX = r'(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})'
     YOUTUBE_POST_REGEX = r'(?:youtube\.com|youtu\.be)\/post\/([a-zA-Z0-9_-]+)'
     
     YOUTUBE_EMBED_BASE = "https://www.youtube-nocookie.com/embed/"
@@ -38,10 +38,16 @@ class YouTubeProvider(MediaProvider):
         html = self.youtube_html_template.replace("{embed_url}", embed_url)
         
         current_format = data.get('format', 'illustration')
-        if current_format == "fullscreen":
-            web_size = (window_size[0], window_size[1])
+        if "/shorts/" in url:
+            if current_format == "fullscreen":
+                web_size = (int(window_size[1] * 9 / 16), window_size[1])
+            else:
+                web_size = (int(self.YOUTUBE_DEFAULT_HEIGHT * 9 / 16), self.YOUTUBE_DEFAULT_HEIGHT)
         else:
-            web_size = (self.YOUTUBE_DEFAULT_WIDTH, self.YOUTUBE_DEFAULT_HEIGHT)
+            if current_format == "fullscreen":
+                web_size = (window_size[0], window_size[1])
+            else:
+                web_size = (self.YOUTUBE_DEFAULT_WIDTH, self.YOUTUBE_DEFAULT_HEIGHT)
             
         return {
             "embed_url": embed_url,

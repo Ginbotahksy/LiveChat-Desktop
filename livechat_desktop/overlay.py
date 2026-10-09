@@ -238,8 +238,8 @@ class Overlay(QMainWindow):
         def setup_label(label, t):
             if not t: return
             
-            # Nettoyage des sauts de ligne inutiles et des espaces multiples
-            t = " ".join(t.split())
+            # Nettoyage des espaces multiples tout en conservant les sauts de ligne voulus
+            t = "\n".join(" ".join(line.split()) for line in t.splitlines()).strip()
             
             length = len(t)
             # Base text sizes on screen width for perfect scaling
