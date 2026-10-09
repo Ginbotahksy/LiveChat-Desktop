@@ -11,7 +11,9 @@ from PyQt6.QtGui import QIcon
 # Obligatoire pour garantir que Wayland ne capture pas l'overlay et laisse passer les clics (uniquement sur Linux)
 if sys.platform.startswith('linux'):
     os.environ['QT_QPA_PLATFORM'] = 'xcb'
-
+elif sys.platform == 'win32':
+    os.environ.pop('QT_QPA_PLATFORM', None)
+    os.environ.pop('QT_PLUGIN_PATH', None)
 from livechat_desktop.socket_manager import SocketManager
 from livechat_desktop.overlay import Overlay
 from livechat_desktop.tray import TrayManager
@@ -23,12 +25,12 @@ updater_thread = None
 
 
 def register_custom_protocol():
-    """Enregistre le protocole electron-app:// pour capter le retour Discord sur Windows et Linux."""
+    """Enregistre le protocole livechat-desktop:// pour capter le retour Discord sur Windows et Linux."""
     if sys.platform == "win32":
         try:
             import winreg
-            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Classes\electron-app")
-            winreg.SetValue(key, "", winreg.REG_SZ, "URL:Electron App Protocol")
+            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Classes\livechat-desktop")
+            winreg.SetValue(key, "", winreg.REG_SZ, "URL:LiveChat Desktop Protocol")
             winreg.SetValueEx(key, "URL Protocol", 0, winreg.REG_SZ, "")
             
             command_key = winreg.CreateKey(key, r"shell\open\command")
@@ -41,15 +43,15 @@ def register_custom_protocol():
             desktop_file = os.path.expanduser("~/.local/share/applications/livechat-desktop-handler.desktop")
             os.makedirs(os.path.dirname(desktop_file), exist_ok=True)
             with open(desktop_file, "w") as f:
-                f.write(f"[Desktop Entry]\nName=LiveChat Protocol Handler\nExec={sys.executable} %U\nType=Application\nTerminal=false\nMimeType=x-scheme-handler/electron-app;\n")
+                f.write(f"[Desktop Entry]\nName=LiveChat Protocol Handler\nExec={sys.executable} %U\nType=Application\nTerminal=false\nMimeType=x-scheme-handler/livechat-desktop;\n")
             import subprocess
-            subprocess.run(["xdg-mime", "default", "livechat-desktop-handler.desktop", "x-scheme-handler/electron-app"], check=False)
+            subprocess.run(["xdg-mime", "default", "livechat-desktop-handler.desktop", "x-scheme-handler/livechat-desktop"], check=False)
         except:
             pass
 
 def handle_protocol_args():
-    """Si l'app est lancée via electron-app://, on sauvegarde l'ID et on prévient l'utilisateur."""
-    if len(sys.argv) > 1 and sys.argv[1].startswith("electron-app://auth/?id="):
+    """Si l'app est lancée via livechat-desktop://, on sauvegarde l'ID et on prévient l'utilisateur."""
+    if len(sys.argv) > 1 and sys.argv[1].startswith("livechat-desktop://auth"):
         try:
             user_id = sys.argv[1].split("=")[-1].strip("/")
             from livechat_desktop.config import config_manager
