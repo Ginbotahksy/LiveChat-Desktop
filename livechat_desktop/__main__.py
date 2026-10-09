@@ -21,6 +21,54 @@ from livechat_desktop.updater import UpdaterThread, apply_windows_update, prompt
 updater_thread = None
 
 
+
+def register_custom_protocol():
+    """Enregistre le protocole electron-app:// pour capter le retour Discord sur Windows et Linux."""
+    if sys.platform == "win32":
+        try:
+            import winreg
+            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Classes\electron-app")
+            winreg.SetValue(key, "", winreg.REG_SZ, "URL:Electron App Protocol")
+            winreg.SetValueEx(key, "URL Protocol", 0, winreg.REG_SZ, "")
+            
+            command_key = winreg.CreateKey(key, r"shell\open\command")
+            winreg.SetValue(command_key, "", winreg.REG_SZ, f'"{sys.executable}" "%1"')
+        except Exception as e:
+            pass
+    elif sys.platform.startswith("linux"):
+        try:
+            import os
+            desktop_file = os.path.expanduser("~/.local/share/applications/livechat-desktop-handler.desktop")
+            os.makedirs(os.path.dirname(desktop_file), exist_ok=True)
+            with open(desktop_file, "w") as f:
+                f.write(f"[Desktop Entry]\nName=LiveChat Protocol Handler\nExec={sys.executable} %U\nType=Application\nTerminal=false\nMimeType=x-scheme-handler/electron-app;\n")
+            import subprocess
+            subprocess.run(["xdg-mime", "default", "livechat-desktop-handler.desktop", "x-scheme-handler/electron-app"], check=False)
+        except:
+            pass
+
+def handle_protocol_args():
+    """Si l'app est lancée via electron-app://, on sauvegarde l'ID et on prévient l'utilisateur."""
+    if len(sys.argv) > 1 and sys.argv[1].startswith("electron-app://auth/?id="):
+        try:
+            user_id = sys.argv[1].split("=")[-1].strip("/")
+            from livechat_desktop.config import config_manager
+            config_manager.set_user_id(user_id)
+            
+            from PyQt6.QtWidgets import QApplication, QMessageBox
+            app = QApplication(sys.argv)
+            msg = QMessageBox()
+            msg.setWindowTitle("Connexion réussie")
+            msg.setText("Connexion validée !\nVeuillez fermer cette fenêtre, puis QUITTER et RELANCER LiveChat depuis la barre des tâches pour appliquer la connexion.")
+            msg.exec()
+            sys.exit(0)
+        except Exception as e:
+            sys.exit(1)
+
+# ----- INJECTION -----
+handle_protocol_args()
+register_custom_protocol()
+
 def main():
     app = QApplication(sys.argv)
     
