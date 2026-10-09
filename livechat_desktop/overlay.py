@@ -234,6 +234,10 @@ class Overlay(QMainWindow):
         
         has_text = bool(top_text or bottom_text)
         self.media_scale_factor = self.MEDIA_SCALE_WITH_TEXT if has_text else self.MEDIA_SCALE_NO_TEXT
+        if self.current_format == 'fullscreen':
+            # Protection contre la barre des tâches si on a du texte en bas
+            self.current_bottom_margin = 60 if bottom_text else 0
+            self.layout.setContentsMargins(0, 0, 0, self.current_bottom_margin)
         
         def setup_label(label, t):
             if not t: return
