@@ -6,7 +6,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtWidgets import QMessageBox
 
 GITHUB_API_URL = "https://api.github.com/repos/Ginbotahksy/LiveChat-Desktop/releases/latest"
-CURRENT_VERSION = "1.0.2"
+CURRENT_VERSION = "1.0.1"
 
 class UpdaterThread(QThread):
     update_ready_signal = pyqtSignal(str) # Emits the path to the downloaded update
