@@ -10,9 +10,12 @@ CURRENT_VERSION = "1.0.4"
 
 class UpdaterThread(QThread):
     update_ready_signal = pyqtSignal(str) # Emits the path to the downloaded update
+    no_update_signal = pyqtSignal(str)
+    error_signal = pyqtSignal(str)
 
-    def __init__(self):
+    def __init__(self, manual=False):
         super().__init__()
+        self.manual = manual
 
     def run(self):
         try:
@@ -23,10 +26,12 @@ class UpdaterThread(QThread):
             latest_version = data.get("tag_name", "").lstrip("v")
             
             if not latest_version:
+                if self.manual: self.error_signal.emit("Impossible de déterminer la dernière version.")
                 return
 
             if latest_version <= CURRENT_VERSION:
                 # Déjà à jour
+                if self.manual: self.no_update_signal.emit(f"Vous êtes déjà à jour (version {CURRENT_VERSION}).")
                 return
 
             # 2. Chercher l'asset correspondant à la plateforme
@@ -43,6 +48,7 @@ class UpdaterThread(QThread):
                     break
             
             if not target_asset:
+                if self.manual: self.error_signal.emit("Aucun fichier d'installation trouvé pour votre système.")
                 return
                 
             download_url = target_asset.get("browser_download_url")
@@ -55,6 +61,7 @@ class UpdaterThread(QThread):
                     base_dir = os.path.dirname(current_exe)
                     download_path = os.path.join(base_dir, "livechat-desktop-update.exe")
                 else:
+                    if self.manual: self.error_signal.emit("Mise à jour impossible en mode non compilé.")
                     return # Pas en mode compilé, on ne met pas à jour le code source
             else:
                 # Sur Linux, on le télécharge dans /tmp
@@ -78,6 +85,7 @@ class UpdaterThread(QThread):
 
         except Exception as e:
             print(f"Erreur lors de la mise à jour: {e}")
+            if self.manual: self.error_signal.emit(f"Erreur lors de la vérification : {e}")
 
 def apply_windows_update():
     """Vérifie si une mise à jour est en attente d'installation sur Windows."""

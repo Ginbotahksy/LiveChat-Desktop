@@ -73,6 +73,7 @@ register_custom_protocol()
 
 def main():
     app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)
     
     # Configuration de l'icône globale de l'application
     icon_path = os.path.join(os.path.dirname(__file__), 'assets', 'icons', 'wilson_maillard.png')
