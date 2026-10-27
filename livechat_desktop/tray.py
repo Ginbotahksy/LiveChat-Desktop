@@ -1,9 +1,74 @@
 import os
+import sys
 import webbrowser
 import urllib.parse
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QSystemTrayIcon, QMenu, QApplication
-from PyQt6.QtGui import QAction, QIcon
+from PyQt6.QtGui import QAction, QActionGroup, QIcon
 from livechat_desktop.config import config_manager
+
+IS_WINDOWS = sys.platform == "win32"
+
+# Sur Linux le menu est rendu nativement par le bureau (GNOME/KDE), sur Windows c'est Qt
+# qui le dessine avec le style "windowsvista" : tout petit et serré. On lui donne donc
+# un look proche des menus de Windows 11.
+WINDOWS_MENU_STYLE = """
+QMenu {
+    background-color: #2b2b2b;
+    color: #f2f2f2;
+    border: 1px solid #3f3f3f;
+    border-radius: 8px;
+    padding: 6px 4px;
+    font-family: "Segoe UI";
+    font-size: 10pt;
+}
+QMenu::item {
+    padding: 7px 28px 7px 34px;
+    margin: 1px 2px;
+    border-radius: 5px;
+    background-color: transparent;
+}
+QMenu::item:selected {
+    background-color: #3d3d3d;
+}
+QMenu::item:disabled {
+    color: #9a9a9a;
+    font-weight: 600;
+}
+QMenu::separator {
+    height: 1px;
+    background-color: #3f3f3f;
+    margin: 5px 10px;
+}
+QMenu::indicator {
+    width: 12px;
+    height: 12px;
+    left: 12px;
+    border-radius: 3px;
+}
+QMenu::indicator:non-exclusive:unchecked {
+    border: 1px solid #8a8a8a;
+}
+QMenu::indicator:non-exclusive:checked {
+    background-color: #4cc2ff;
+    border: 1px solid #4cc2ff;
+}
+QMenu::indicator:exclusive {
+    border-radius: 6px;
+}
+QMenu::indicator:exclusive:unchecked {
+    border: 1px solid #8a8a8a;
+}
+QMenu::indicator:exclusive:checked {
+    background-color: #4cc2ff;
+    border: 1px solid #4cc2ff;
+}
+QMenu::right-arrow {
+    width: 10px;
+    height: 10px;
+    right: 10px;
+}
+"""
 
 class TrayManager:
     def __init__(self, style, socket_manager, overlay):
@@ -18,21 +83,41 @@ class TrayManager:
             self.tray_icon.setIcon(style.standardIcon(style.StandardPixmap.SP_ComputerIcon))
         
         self.menu = QMenu()
+        self._style_menu(self.menu)
         self.tray_icon.setContextMenu(self.menu)
         
         self.socket_manager = socket_manager
         self.overlay = overlay
         
+        # Branchement / débranchement d'un écran : on met la liste à jour
+        app = QApplication.instance()
+        app.screenAdded.connect(self.on_screens_changed)
+        app.screenRemoved.connect(self.on_screens_changed)
+        
         self.update_menu([])
         self.tray_icon.show()
+
+    @staticmethod
+    def _style_menu(menu):
+        if not IS_WINDOWS:
+            return
+        # Fond transparent + sans cadre natif pour que les coins arrondis du style soient visibles
+        menu.setWindowFlags(menu.windowFlags() | Qt.WindowType.FramelessWindowHint | Qt.WindowType.NoDropShadowWindowHint)
+        menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        menu.setStyleSheet(WINDOWS_MENU_STYLE)
+
+    def _add_header(self, text):
+        action = self.menu.addAction(text)
+        # GNOME masque parfois les éléments désactivés ; sur Windows on les grise pour en faire des titres
+        action.setEnabled(not IS_WINDOWS)
+        return action
 
     def update_menu(self, guilds):
         self.menu.clear()
         
         # User status
         status_text = f"Connecté: {config_manager.user_id}" if config_manager.user_id else "Non connecté"
-        action_status = self.menu.addAction(status_text)
-        action_status.setEnabled(True)  # GNOME masque parfois les éléments désactivés
+        self._add_header(status_text)
         
         if not config_manager.user_id and self.socket_manager.bot_client_id:
             action_login = self.menu.addAction("Se connecter à Discord")
@@ -47,12 +132,10 @@ class TrayManager:
             
         self.menu.addSeparator()
         
-        action_rooms = self.menu.addAction("Rooms disponibles :")
-        action_rooms.setEnabled(True)
+        self._add_header("Rooms disponibles :")
         
         if not guilds:
-            label = self.menu.addAction("Aucune room disponible")
-            label.setEnabled(True)
+            self._add_header("Aucune room disponible")
         else:
             for guild in guilds:
                 guild_id = guild.get('id')
@@ -69,6 +152,10 @@ class TrayManager:
                 
         self.menu.addSeparator()
         
+        self._add_screen_menu()
+        
+        self.menu.addSeparator()
+        
         self.action_update = QAction(getattr(self, "update_action_text", "Vérifier les mises à jour"), self.menu)
         self.action_update.triggered.connect(self.check_updates)
         self.menu.addAction(self.action_update)
@@ -77,9 +164,47 @@ class TrayManager:
         quit_action.triggered.connect(QApplication.instance().quit)
         self.menu.addAction(quit_action)
 
+    def _add_screen_menu(self):
+        # menu.clear() ne détruit pas les sous-menus, on supprime l'ancien nous-mêmes
+        if getattr(self, "screen_menu", None):
+            self.screen_menu.deleteLater()
+        screen_menu = self.screen_menu = QMenu("Écran d'affichage", self.menu)
+        self._style_menu(screen_menu)
+        self.menu.addMenu(screen_menu)
+        
+        group = QActionGroup(screen_menu)
+        group.setExclusive(True)
+        
+        app = QApplication.instance()
+        primary_name = app.primaryScreen().name()
+        current_name = self.overlay.target_screen().name()
+        
+        for index, screen in enumerate(app.screens(), start=1):
+            size = screen.size()
+            label = f"Écran {index} - {size.width()}x{size.height()}"
+            if screen.model():
+                label += f" ({screen.model()})"
+            if screen.name() == primary_name:
+                label += " - principal"
+            
+            action = QAction(label, screen_menu)
+            action.setCheckable(True)
+            action.setChecked(screen.name() == current_name)
+            action.setActionGroup(group)
+            action.triggered.connect(lambda checked, name=screen.name(): self.select_screen(name))
+            screen_menu.addAction(action)
+
+    def select_screen(self, screen_name):
+        config_manager.set_screen_name(screen_name)
+        self.overlay.apply_screen()
+        self.update_menu(self.socket_manager.client_guilds)
+
+    def on_screens_changed(self, _screen):
+        self.overlay.apply_screen()
+        self.update_menu(self.socket_manager.client_guilds)
+
     def check_updates(self):
-        from livechat_desktop.updater import UpdaterThread, prompt_linux_update
-        import sys
+        from livechat_desktop.updater import UpdaterThread, prompt_linux_update, restart_app
         from PyQt6.QtWidgets import QMessageBox
         
         self.update_action_text = "Vérification..."
@@ -102,6 +227,11 @@ class TrayManager:
                 else:
                     self.action_update.setIcon(QIcon())
         
+        def on_progress(percent):
+            if hasattr(self, "action_update"):
+                self.update_action_text = f"Téléchargement... {percent} %"
+                self.action_update.setText(self.update_action_text)
+        
         def on_update_ready(path):
             reset_action("Mise à jour prête !")
             if sys.platform != "win32":
@@ -113,8 +243,8 @@ class TrayManager:
                 msg.setText("La mise à jour a été téléchargée.\nVoulez-vous redémarrer l'application pour l'appliquer maintenant ?")
                 msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
                 if msg.exec() == QMessageBox.StandardButton.Yes:
-                    import subprocess
-                    subprocess.Popen([sys.executable] + sys.argv[1:])
+                    # Le nouveau processus remplace l'exe au démarrage (apply_windows_update)
+                    restart_app()
                     QApplication.instance().quit()
                 
         def on_no_update(msg):
@@ -125,6 +255,7 @@ class TrayManager:
             # Affiche juste l'erreur dans le menu, sans popup bloquante
             reset_action("Erreur", QApplication.style().StandardPixmap.SP_MessageBoxWarning)
             
+        self._manual_updater.progress_signal.connect(on_progress)
         self._manual_updater.update_ready_signal.connect(on_update_ready)
         self._manual_updater.no_update_signal.connect(on_no_update)
         self._manual_updater.error_signal.connect(on_error)

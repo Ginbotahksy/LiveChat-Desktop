@@ -1,5 +1,6 @@
 import re
 import os
+import yt_dlp
 from .base import MediaProvider
 
 class TikTokProvider(MediaProvider):
@@ -8,6 +9,8 @@ class TikTokProvider(MediaProvider):
     TIKTOK_ASPECT_RATIO = 9 / 16
     TIKTOK_DEFAULT_WIDTH = 405
     TIKTOK_DEFAULT_HEIGHT = 720
+    # Temps laissé à l'embed pour charger avant que la vidéo démarre
+    LOAD_MARGIN_MS = 3000
 
     def __init__(self):
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -34,8 +37,23 @@ class TikTokProvider(MediaProvider):
         else:
             web_size = (self.TIKTOK_DEFAULT_WIDTH, self.TIKTOK_DEFAULT_HEIGHT)
             
-        return {
+        result = {
             "embed_url": embed_url,
             "web_size": web_size,
             "js_injection": self.js_bypass_script
         }
+        # L'embed TikTok tourne en boucle sans jamais signaler la fin : on fixe la durée d'affichage
+        # sur celle de la vidéo (appelé hors du thread de l'interface, la requête ne fige rien)
+        video_duration = self._video_duration(url)
+        if video_duration:
+            result["max_duration"] = int(video_duration * 1000) + self.LOAD_MARGIN_MS
+        return result
+
+    @staticmethod
+    def _video_duration(url):
+        try:
+            with yt_dlp.YoutubeDL({'quiet': True, 'no_warnings': True, 'skip_download': True}) as ydl:
+                return ydl.extract_info(url, download=False).get('duration')
+        except Exception as e:
+            print("Durée TikTok introuvable:", e)
+            return None

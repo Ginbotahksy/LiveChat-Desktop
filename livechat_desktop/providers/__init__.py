@@ -22,6 +22,10 @@ def process_link(lien, data, window_size):
         
     for provider in PROVIDERS:
         if provider.can_handle(lien):
-            return provider.process(lien, data, window_size)
+            result = provider.process(lien, data, window_size)
+            # Provider en échec (API down, lien non reconnu...) : on passe au suivant,
+            # jusqu'au GenericProvider qui affiche la page avec un timer
+            if result:
+                return result
             
     return {}

@@ -72,6 +72,10 @@ handle_protocol_args()
 register_custom_protocol()
 
 def main():
+    # Application de la mise à jour Windows si présente (renommage et redémarrage),
+    # avant de créer l'interface pour ne pas faire apparaître l'icône pour rien
+    apply_windows_update()
+    
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     
@@ -88,9 +92,6 @@ def main():
     socket_manager.media_signal.connect(overlay.handle_media)
     socket_manager.stop_signal.connect(overlay.hide_all)
     socket_manager.guilds_updated_signal.connect(tray_manager.update_menu)
-    
-    # Application de la mise à jour Windows si présente (renommage et redémarrage)
-    apply_windows_update()
     
     # Démarrage du thread réseau
     socket_manager.start()

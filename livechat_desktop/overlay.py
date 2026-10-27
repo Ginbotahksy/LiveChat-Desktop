@@ -1,5 +1,6 @@
+import threading
 import requests
-from PyQt6.QtCore import Qt, QTimer, QUrl, QRect, QSize
+from PyQt6.QtCore import Qt, QTimer, QUrl, QRect, QSize, pyqtSignal
 from PyQt6.QtWidgets import QMainWindow, QLabel, QVBoxLayout, QWidget, QApplication
 from PyQt6.QtGui import QPixmap, QFont, QFontMetrics
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
@@ -7,8 +8,12 @@ from PyQt6.QtMultimediaWidgets import QVideoWidget
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEngineSettings
 from livechat_desktop.providers import process_link
+from livechat_desktop.config import config_manager
 
 class Overlay(QMainWindow):
+    # (id de la demande, média préparé) : renvoie au thread de l'interface le résultat du thread réseau
+    media_ready_signal = pyqtSignal(int, object)
+
     # --- CONFIGURATION & CONSTANTS ---
     # Part de la zone utile de l'écran (hors barre des tâches) occupée par le bloc texte + média
     BOX_RATIO_DEFAULT = 0.80
@@ -22,6 +27,8 @@ class Overlay(QMainWindow):
     SPACING = 10
 
     DEFAULT_DURATION_BOT = 2000
+    # Filet de sécurité pour les liens dont on attend la fin (YouTube...) si elle n'est jamais signalée
+    MAX_LINK_DURATION = 10 * 60 * 1000
     IMAGE_DOWNLOAD_TIMEOUT = 10
 
     TEXT_LEN_SHORT = 50
@@ -46,8 +53,7 @@ class Overlay(QMainWindow):
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
-        # Zone utile de l'écran : la barre des tâches est exclue par le système
-        self.setGeometry(QApplication.primaryScreen().availableGeometry())
+        self.apply_screen()
 
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
@@ -100,6 +106,26 @@ class Overlay(QMainWindow):
 
         self.current_format = 'illustration'
         self.media_box = QSize(self.width(), self.height())
+
+        # Incrémenté à chaque nouveau média ou /stop : un média encore en préparation devient obsolète
+        self._request_id = 0
+        self.media_ready_signal.connect(self._on_media_ready)
+
+    # --- CHOIX DE L'ÉCRAN ---
+
+    @staticmethod
+    def target_screen():
+        """Écran choisi dans le menu, ou l'écran principal s'il n'est plus branché."""
+        for screen in QApplication.screens():
+            if screen.name() == config_manager.screen_name:
+                return screen
+        return QApplication.primaryScreen()
+
+    def apply_screen(self):
+        screen = self.target_screen()
+        self.setScreen(screen)
+        # Zone utile de l'écran : la barre des tâches est exclue par le système
+        self.setGeometry(screen.availableGeometry())
 
     # --- CALCUL DE LA MISE EN PAGE ---
     # Tout est calculé à partir de la taille de l'écran, sans dépendre de la taille
@@ -193,6 +219,8 @@ class Overlay(QMainWindow):
             self.web_view.page().runJavaScript(js_code)
 
     def hide_all(self):
+        # Annule un média dont la préparation réseau n'est pas finie (ex: /stop pendant le téléchargement)
+        self._request_id += 1
         self.timer.stop()
         self.image_label.hide()
         self.video_widget.hide()
@@ -207,23 +235,26 @@ class Overlay(QMainWindow):
             pass
         self.hide()
 
-    def play_direct_video(self, direct_url, duration=None):
+    def play_direct_video(self, direct_url, duration=None, show_video=True):
         try:
-            # Taille provisoire en 16:9, corrigée dès que la vraie taille de la vidéo est connue
-            self.video_widget.setFixedSize(self._fit_in_media_box(self.DEFAULT_ASPECT_RATIO, 1))
             self.media_player.setSource(QUrl(direct_url))
-            self.video_widget.show()
+            # Pour un audio, pas de cadre vidéo (il s'afficherait en rectangle noir)
+            if show_video:
+                # Taille provisoire en 16:9, corrigée dès que la vraie taille de la vidéo est connue
+                self.video_widget.setFixedSize(self._fit_in_media_box(self.DEFAULT_ASPECT_RATIO, 1))
+                self.video_widget.show()
             self.media_player.play()
+            # Toujours écouté : même avec une durée, un fichier illisible doit fermer l'overlay
+            self.media_player.mediaStatusChanged.connect(self.on_media_status_changed)
             if duration:
                 self.timer.start(duration)
-            else:
-                self.media_player.mediaStatusChanged.connect(self.on_media_status_changed)
         except Exception as e:
             print("Erreur lecteur vidéo:", e)
 
     def on_media_status_changed(self, status):
         print(f"DEBUG: Media status changed to {status}")
-        if status == QMediaPlayer.MediaStatus.EndOfMedia:
+        # InvalidMedia : lien mort ou format non supporté, sinon le texte resterait affiché indéfiniment
+        if status in (QMediaPlayer.MediaStatus.EndOfMedia, QMediaPlayer.MediaStatus.InvalidMedia):
             print("DEBUG: EndOfMedia reached, hiding all.")
             self.hide_all()
             try:
@@ -234,35 +265,77 @@ class Overlay(QMainWindow):
     def handle_media(self, data):
         print(f"DEBUG: Media received: {data}")
         self.hide_all()
-        # Suit un éventuel changement de résolution / de barre des tâches
-        self.setGeometry(QApplication.primaryScreen().availableGeometry())
+        # Suit un éventuel changement d'écran, de résolution ou de barre des tâches
+        self.apply_screen()
+        # Tout ce qui passe par le réseau (API des liens, téléchargement d'image) se fait dans un thread
+        # à part : sinon toute l'interface, menu compris, reste figée le temps des requêtes
+        window_size = (self.width(), self.height())
+        threading.Thread(target=self._prepare_media, args=(self._request_id, data, window_size), daemon=True).start()
 
+    def _prepare_media(self, request_id, data, window_size):
+        """Exécuté hors du thread de l'interface : ne doit toucher à aucun widget."""
         url = data.get('url')
         lien = data.get('lien')
-        text = data.get('text')
         media_type = data.get('type')
-        duration_raw = data.get('duration')
-        try:
-            duration = int(duration_raw) if duration_raw is not None else None
-        except ValueError:
-            duration = None
-        self.current_format = data.get('format', 'illustration')
-
         top_text = None
-        bottom_text = text
         provider_result = {}
 
         # PROCESSEUR DE LIENS (Twitter, YouTube, TikTok...)
-        self.current_js_injection = None
         if lien:
-            provider_result = process_link(lien, data, (self.width(), self.height()))
-            self.current_js_injection = provider_result.get("js_injection")
+            try:
+                provider_result = process_link(lien, data, window_size)
+            except Exception as e:
+                print("Erreur traitement du lien:", e)
 
             # Application des modifs de données (ex: Twitter convertit le lien en url direct media)
             if "url" in provider_result: url = provider_result["url"]
             if "type" in provider_result: media_type = provider_result["type"]
             if "lien" in provider_result: lien = provider_result["lien"]
             if "top_text" in provider_result: top_text = provider_result["top_text"]
+
+        image_data = None
+        if not lien and url and media_type == 'image':
+            image_data = self._download_image(url)
+
+        self.media_ready_signal.emit(request_id, {
+            "data": data,
+            "url": url,
+            "lien": lien,
+            "type": media_type,
+            "top_text": top_text,
+            "provider_result": provider_result,
+            "image_data": image_data,
+        })
+
+    def _download_image(self, url):
+        try:
+            resp = requests.get(url, timeout=self.IMAGE_DOWNLOAD_TIMEOUT)
+            if resp.status_code == 200:
+                return resp.content
+            print(f"Image non téléchargée ({resp.status_code}):", url)
+        except Exception as e:
+            print("Error image:", e)
+        return None
+
+    def _on_media_ready(self, request_id, prepared):
+        # Un autre média ou un /stop est arrivé pendant la préparation : on n'affiche pas celui-ci
+        if request_id != self._request_id:
+            return
+
+        data = prepared["data"]
+        url = prepared["url"]
+        lien = prepared["lien"]
+        media_type = prepared["type"]
+        top_text = prepared["top_text"]
+        provider_result = prepared["provider_result"]
+        bottom_text = data.get('text')
+        duration_raw = data.get('duration')
+        try:
+            duration = int(duration_raw) if duration_raw is not None else None
+        except ValueError:
+            duration = None
+        self.current_format = data.get('format', 'illustration')
+        self.current_js_injection = provider_result.get("js_injection")
 
         # --- WORKAROUND ---
         # Le bot distant (sur iceboxer) envoie par défaut duration=2000 si non précisé.
@@ -276,6 +349,10 @@ class Overlay(QMainWindow):
 
         if ((lien and not is_generic_web) or media_type in ('video', 'audio')) and duration == self.DEFAULT_DURATION_BOT:
             duration = None
+
+        # Un lien affiché sans durée ne doit jamais rester à l'écran indéfiniment
+        if lien and not duration:
+            duration = provider_result.get("max_duration", self.MAX_LINK_DURATION)
 
         print(f"DEBUG: Processed duration is: {duration}")
 
@@ -313,23 +390,18 @@ class Overlay(QMainWindow):
 
         elif url:
             if media_type == 'image':
-                try:
-                    resp = requests.get(url, timeout=self.IMAGE_DOWNLOAD_TIMEOUT)
-                    if resp.status_code == 200:
-                        pixmap = QPixmap()
-                        pixmap.loadFromData(resp.content)
-                        if not pixmap.isNull():
-                            target = self._fit_in_media_box(pixmap.width(), pixmap.height())
-                            self.image_label.setPixmap(pixmap.scaled(target, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
-                            self.image_label.show()
-                        else:
-                            print("Image illisible:", url)
-                    else:
-                        print(f"Image non téléchargée ({resp.status_code}):", url)
-                except Exception as e:
-                    print("Error image:", e)
+                # Le QPixmap doit être créé ici, dans le thread de l'interface
+                pixmap = QPixmap()
+                if prepared["image_data"]:
+                    pixmap.loadFromData(prepared["image_data"])
+                if not pixmap.isNull():
+                    target = self._fit_in_media_box(pixmap.width(), pixmap.height())
+                    self.image_label.setPixmap(pixmap.scaled(target, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+                    self.image_label.show()
+                else:
+                    print("Image illisible:", url)
             elif media_type in ('video', 'audio'):
-                self.play_direct_video(url, duration)
+                self.play_direct_video(url, duration, show_video=media_type == 'video')
 
         if not lien and media_type not in ('video', 'audio'):
             if duration:

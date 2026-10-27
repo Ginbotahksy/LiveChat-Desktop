@@ -7,6 +7,8 @@ class ConfigManager:
     def __init__(self):
         self.user_id = None
         self.active_rooms = set()
+        # Nom (QScreen.name()) de l'écran choisi pour l'overlay, None = écran principal
+        self.screen_name = None
         self.load_config()
 
     def load_config(self):
@@ -17,6 +19,7 @@ class ConfigManager:
                     data = json.load(f)
                 self.user_id = data.get('userId')
                 self.active_rooms = set(data.get('activeRooms', []))
+                self.screen_name = data.get('screen')
                 print("Configuration chargée depuis :", CONFIG_PATH)
             except Exception as e:
                 print("Erreur lors du chargement de la config :", e)
@@ -26,7 +29,8 @@ class ConfigManager:
         try:
             config = {
                 'userId': self.user_id,
-                'activeRooms': list(self.active_rooms)
+                'activeRooms': list(self.active_rooms),
+                'screen': self.screen_name
             }
             with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
                 json.dump(config, f, indent=2)
@@ -36,6 +40,10 @@ class ConfigManager:
 
     def set_user_id(self, user_id):
         self.user_id = user_id
+        self.save_config()
+
+    def set_screen_name(self, screen_name):
+        self.screen_name = screen_name
         self.save_config()
 
 config_manager = ConfigManager()

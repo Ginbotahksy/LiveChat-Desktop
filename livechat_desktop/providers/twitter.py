@@ -8,7 +8,8 @@ class TwitterProvider(MediaProvider):
     API_TIMEOUT = 5
 
     def can_handle(self, url: str) -> bool:
-        return "x.com" in url or "twitter.com" in url
+        # Regex et pas un simple "x.com" in url, sinon netflix.com, box.com... passent par ici
+        return bool(re.search(self.TWITTER_URL_REGEX, url))
 
     def process(self, url: str, data: dict, window_size: tuple) -> dict:
         match = re.search(self.TWITTER_URL_REGEX, url)
@@ -39,6 +40,8 @@ class TwitterProvider(MediaProvider):
                 
                 if xt_text:
                     result["top_text"] = xt_text
+                # On affiche le contenu du tweet nous-mêmes, pas la page x.com
+                result["lien"] = None
                     
                 media = tweet.get("media", {}).get("all", [])
                 

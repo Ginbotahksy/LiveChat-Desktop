@@ -23,6 +23,10 @@
                 if (data.event === "onStateChange" && data.info === 0) {
                     document.title = "VIDEO_ENDED";
                 }
+                // Vidéo supprimée, privée ou intégration interdite : elle ne se terminera jamais
+                if (data.event === "onError") {
+                    document.title = "VIDEO_ENDED";
+                }
             } catch(e) {}
         });
     </script>

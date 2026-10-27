@@ -71,7 +71,9 @@ class SocketManager(QThread):
     def run(self):
         socket_url = os.environ.get("SOCKET_URL", "http://iceboxer.hd.free.fr:8080")
         try:
-            self.sio.connect(socket_url)
+            # retry=True : si le serveur est injoignable au lancement (PC qui démarre avant le réseau,
+            # bot redémarré...), on réessaie au lieu d'abandonner définitivement
+            self.sio.connect(socket_url, retry=True)
             self.sio.wait()
         except Exception as e:
             print("SocketIO Error:", e)
